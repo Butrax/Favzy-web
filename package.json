@@ -1,0 +1,14 @@
+{
+  "name": "favzy-web",
+  "version": "1.0.0",
+  "description": "Favzy web : Bookmark manager — gestionnaire de marque-pages personnel, sans base de données",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vercel dev",
+    "test": "node --test"
+  }
+}

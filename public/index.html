@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#e8a317">
+  <title>Favzy web : Bookmark manager</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+
+  <!-- Connexion -->
+  <main id="login" class="login" hidden>
+    <form id="login-form" class="login-card" autocomplete="on">
+      <div class="brand brand-big"><span class="brand-mark" aria-hidden="true">★</span> Favzy</div>
+      <p class="muted">Tes marque-pages, partout.</p>
+      <label class="field">
+        <span>Mot de passe</span>
+        <input id="login-password" type="password" name="password" autocomplete="current-password" required autofocus>
+      </label>
+      <p id="login-error" class="error" role="alert" hidden></p>
+      <button class="btn primary" type="submit">Se connecter</button>
+    </form>
+  </main>
+
+  <!-- Application -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <button id="toggle-filters" class="btn icon only-mobile" type="button" aria-label="Filtres" aria-expanded="false">☰</button>
+      <div class="brand"><span class="brand-mark" aria-hidden="true">★</span> Favzy</div>
+      <input id="search" class="search" type="search" placeholder="Rechercher… (touche /)" aria-label="Rechercher" autocomplete="off">
+      <button id="add-btn" class="btn primary" type="button">+ <span class="hide-mobile">Ajouter</span></button>
+      <button id="tools-btn" class="btn icon" type="button" aria-label="Outils et réglages">⚙</button>
+    </header>
+
+    <div class="layout">
+      <aside id="sidebar" class="sidebar" aria-label="Filtres">
+        <nav id="nav-main"></nav>
+        <h2>Dossiers</h2>
+        <nav id="nav-folders"></nav>
+        <h2>Tags</h2>
+        <div id="nav-tags" class="tags"></div>
+      </aside>
+
+      <main class="content">
+        <div class="content-head">
+          <h1 id="list-title">Tous les marque-pages</h1>
+          <span id="list-count" class="muted"></span>
+          <label class="sort">
+            <span class="sr-only">Trier par</span>
+            <select id="sort">
+              <option value="recent">Plus récents</option>
+              <option value="oldest">Plus anciens</option>
+              <option value="title">Titre (A→Z)</option>
+            </select>
+          </label>
+        </div>
+        <div id="list" class="list"></div>
+        <p id="empty" class="empty" hidden></p>
+      </main>
+    </div>
+  </div>
+
+  <!-- Ajout / modification -->
+  <dialog id="edit-dialog">
+    <form id="edit-form" method="dialog" class="dialog-body">
+      <h2 id="edit-title">Ajouter un marque-page</h2>
+      <label class="field">
+        <span>Adresse (URL)</span>
+        <input id="f-url" type="url" required placeholder="https://…" autocomplete="off">
+      </label>
+      <p id="dup-warning" class="warning" hidden></p>
+      <label class="field">
+        <span>Titre <button id="fetch-title" class="link-btn" type="button">récupérer automatiquement</button></span>
+        <input id="f-title" type="text" maxlength="300" autocomplete="off">
+      </label>
+      <label class="field">
+        <span>Description</span>
+        <textarea id="f-description" rows="2" maxlength="2000"></textarea>
+      </label>
+      <div class="row">
+        <label class="field grow">
+          <span>Dossier</span>
+          <input id="f-folder" type="text" list="folder-list" placeholder="ex. Travail/Veille" autocomplete="off">
+          <datalist id="folder-list"></datalist>
+        </label>
+        <label class="field grow">
+          <span>Tags (séparés par des virgules)</span>
+          <input id="f-tags" type="text" placeholder="dev, outils" autocomplete="off">
+        </label>
+      </div>
+      <label class="check"><input id="f-favorite" type="checkbox"> Favori ★</label>
+      <p id="edit-error" class="error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button id="edit-cancel" class="btn" type="button">Annuler</button>
+        <button id="edit-force" class="btn" type="button" hidden>Ajouter quand même</button>
+        <button id="edit-save" class="btn primary" type="submit">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Outils -->
+  <dialog id="tools-dialog">
+    <div class="dialog-body">
+      <h2>Outils</h2>
+
+      <h3>Importer</h3>
+      <p class="muted">Fichier HTML exporté depuis Chrome, Firefox, Edge ou Safari — ou un export JSON de Favzy. Les doublons sont ignorés.</p>
+      <input id="import-file" type="file" accept=".html,.htm,.json,text/html,application/json">
+
+      <h3>Exporter</h3>
+      <div class="row">
+        <button id="export-html" class="btn" type="button">HTML (navigateurs)</button>
+        <button id="export-json" class="btn" type="button">JSON (sauvegarde)</button>
+      </div>
+
+      <h3>Bookmarklet</h3>
+      <p class="muted">Glisse ce lien dans ta barre de favoris : un clic sur n'importe quelle page l'ajoute à Favzy.</p>
+      <p><a id="bookmarklet" class="btn" href="#" draggable="true">★ Ajouter à Favzy</a></p>
+      <input id="bookmarklet-code" type="text" readonly aria-label="Code du bookmarklet">
+      <p class="muted small">Sur mobile : installe Favzy comme application (menu du navigateur → « Ajouter à l'écran d'accueil »), puis utilise « Partager » → Favzy sur Android.</p>
+
+      <div class="dialog-actions">
+        <button id="logout" class="btn danger" type="button">Se déconnecter</button>
+        <button id="tools-close" class="btn primary" type="button">Fermer</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
