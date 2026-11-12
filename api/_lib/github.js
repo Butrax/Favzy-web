@@ -45,7 +45,7 @@ function githubError(status, action) {
 }
 
 export function emptyData() {
-  return { version: 1, bookmarks: [] };
+  return { version: 2, primaryTags: [], bookmarks: [] };
 }
 
 export function parseData(text) {
@@ -56,16 +56,22 @@ export function parseData(text) {
   } catch {
     throw new HttpError(500, 'Le fichier de données n\'est pas un JSON valide');
   }
-  if (Array.isArray(parsed)) return { version: 1, bookmarks: parsed }; // tolère un simple « [] »
-  if (!parsed || !Array.isArray(parsed.bookmarks)) throw new HttpError(500, 'Format du fichier de données inattendu');
-  return { version: 1, bookmarks: parsed.bookmarks };
+  const list = Array.isArray(parsed) ? parsed : parsed?.bookmarks; // tolère un simple « [] »
+  if (!Array.isArray(list)) throw new HttpError(500, 'Format du fichier de données inattendu');
+  const bookmarks = list.filter((b) => b && typeof b === 'object');
+  for (const bookmark of bookmarks) {
+    delete bookmark.folder; // ancien champ « dossier » (version 1) : supprimé à la prochaine écriture
+    if (!Array.isArray(bookmark.tags)) bookmark.tags = [];
+  }
+  const primaryTags = Array.isArray(parsed?.primaryTags) ? parsed.primaryTags.filter((t) => typeof t === 'string') : [];
+  return { version: 2, primaryTags, bookmarks };
 }
 
 // Un marque-page par ligne : diffs Git lisibles.
 export function serialize(data) {
   const lines = data.bookmarks.map((b) => `    ${JSON.stringify(b)}`);
   const body = lines.length ? `[\n${lines.join(',\n')}\n  ]` : '[]';
-  return `{\n  "version": 1,\n  "bookmarks": ${body}\n}\n`;
+  return `{\n  "version": 2,\n  "primaryTags": ${JSON.stringify(data.primaryTags ?? [])},\n  "bookmarks": ${body}\n}\n`;
 }
 
 export async function readStore() {

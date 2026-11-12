@@ -1,5 +1,5 @@
 import { requireAuth } from './_lib/auth.js';
-import { addBookmark, deleteBookmark, importBookmarks, updateBookmark } from './_lib/bookmarks.js';
+import { addBookmark, deleteBookmark, importBookmarks, setPrimaryTags, updateBookmark } from './_lib/bookmarks.js';
 import { mutate, readStore } from './_lib/github.js';
 import { HttpError, readJson, send, sendError, sameOrigin } from './_lib/http.js';
 
@@ -11,7 +11,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       const { data } = await readStore();
-      return send(res, 200, { bookmarks: data.bookmarks });
+      return send(res, 200, { bookmarks: data.bookmarks, primaryTags: data.primaryTags });
     }
 
     if (req.method !== 'POST') {
@@ -38,9 +38,18 @@ export default async function handler(req, res) {
         message = `Suppression : ${short(body.id)}`;
         change = (data) => deleteBookmark(data, body.id);
         break;
+      case 'primaryTags':
+        message = 'Tags principaux';
+        change = (data) => setPrimaryTags(data, body.tags);
+        break;
       case 'import':
         message = `Import de ${Array.isArray(body.bookmarks) ? body.bookmarks.length : 0} marque-pages`;
-        change = (data) => importBookmarks(data, body.bookmarks);
+        change = (data) => {
+          const result = importBookmarks(data, body.bookmarks);
+          // Restauration d'un export JSON : on ajoute les tags principaux qui y figuraient.
+          if (Array.isArray(body.primaryTags)) setPrimaryTags(data, [...data.primaryTags, ...body.primaryTags]);
+          return result;
+        };
         break;
       default:
         throw new HttpError(400, 'Opération inconnue');
@@ -48,7 +57,7 @@ export default async function handler(req, res) {
 
     const { data, result } = await mutate(change, message);
     const extra = body.op === 'import' ? result : {};
-    send(res, 200, { bookmarks: data.bookmarks, ...extra });
+    send(res, 200, { bookmarks: data.bookmarks, primaryTags: data.primaryTags, ...extra });
   } catch (error) {
     sendError(res, error);
   }

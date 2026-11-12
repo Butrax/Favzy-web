@@ -108,7 +108,7 @@ describe('marque-pages', () => {
 
   test('liste vide quand le fichier n\'existe pas encore', async () => {
     const res = await call(bookmarks, { cookie: session() });
-    assert.deepEqual(res.json, { bookmarks: [] });
+    assert.deepEqual(res.json, { bookmarks: [], primaryTags: [] });
   });
 
   test('erreur claire quand le dépôt est inaccessible', async () => {
@@ -119,12 +119,12 @@ describe('marque-pages', () => {
   });
 
   test('ajout, modification, favori, suppression', async () => {
-    const added = await post({ op: 'add', bookmark: { url: 'https://example.com/a', title: ' Exemple ', tags: 'Dev, outils,dev', folder: 'Travail//Veille' } });
+    const added = await post({ op: 'add', bookmark: { url: 'https://example.com/a', title: ' Exemple ', tags: 'Dev, outils,dev', folder: 'ignoré' } });
     assert.equal(added.status, 200);
     const [item] = added.json.bookmarks;
     assert.equal(item.title, 'Exemple');
-    assert.deepEqual(item.tags, ['dev', 'outils']);
-    assert.equal(item.folder, 'Travail/Veille');
+    assert.deepEqual(item.tags, ['Dev', 'outils']); // casse conservée, doublon « dev » fusionné
+    assert.equal('folder' in item, false); // les dossiers n'existent plus
     assert.equal(saved().length, 1);
 
     const updated = await post({ op: 'update', id: item.id, patch: { favorite: true, title: 'Nouveau' } });
@@ -192,6 +192,53 @@ describe('marque-pages', () => {
     const res = await post({ op: 'add', bookmark: { url: 'https://example.com' } });
     assert.equal(res.status, 200);
     assert.equal(saved().length, 1);
+  });
+
+  test('un tag saisi avec une autre casse reprend l\'écriture existante', async () => {
+    await post({ op: 'add', bookmark: { url: 'https://un.example', tags: 'Musique, VST' } });
+    const res = await post({ op: 'add', bookmark: { url: 'https://deux.example', tags: 'musique, vst, Nouveau' } });
+    assert.deepEqual(res.json.bookmarks[0].tags, ['Musique', 'VST', 'Nouveau']);
+    const upd = await post({ op: 'update', id: res.json.bookmarks[0].id, patch: { tags: 'MUSIQUE' } });
+    assert.deepEqual(upd.json.bookmarks[0].tags, ['Musique']);
+  });
+
+  test('tags principaux : définis parmi les tags des favoris, renvoyés par GET, conservés', async () => {
+    await post({ op: 'add', bookmark: { url: 'https://un.example', tags: 'Musique, VST' } });
+    await post({ op: 'add', bookmark: { url: 'https://deux.example', tags: 'Sport' } });
+    const set = await post({ op: 'primaryTags', tags: ['musique', 'Sport', 'Inconnu', 'SPORT'] });
+    assert.equal(set.status, 200);
+    assert.deepEqual(set.json.primaryTags, ['Musique', 'Sport']); // casse canonique, inconnu écarté, pas de doublon
+    assert.deepEqual(JSON.parse(store.text).primaryTags, ['Musique', 'Sport']);
+    const get = await call(bookmarks, { cookie: session() });
+    assert.deepEqual(get.json.primaryTags, ['Musique', 'Sport']);
+    // une autre opération ne les efface pas
+    const next = await post({ op: 'add', bookmark: { url: 'https://trois.example', tags: 'VST' } });
+    assert.deepEqual(next.json.primaryTags, ['Musique', 'Sport']);
+    assert.equal((await post({ op: 'primaryTags', tags: 'pas une liste' })).status, 400);
+    const cleared = await post({ op: 'primaryTags', tags: [] });
+    assert.deepEqual(cleared.json.primaryTags, []);
+  });
+
+  test('import : restaure les tags principaux d\'un export JSON', async () => {
+    const res = await post({
+      op: 'import',
+      bookmarks: [{ url: 'https://a.example', tags: ['Musique', 'MAO'] }],
+      primaryTags: ['Musique', 'Absent'],
+    });
+    assert.deepEqual(res.json.primaryTags, ['Musique']);
+  });
+
+  test('ancien fichier (version 1 avec dossiers) : lu tel quel, dossiers retirés à la prochaine écriture', async () => {
+    const old = { version: 1, bookmarks: [{ id: 'x', url: 'https://ancien.example/', title: 'Ancien', description: '', tags: ['dev'], folder: 'Travail', favorite: false, createdAt: '2020-01-01T00:00:00.000Z' }] };
+    store = { text: JSON.stringify(old), sha: 'init' };
+    const got = await call(bookmarks, { cookie: session() });
+    assert.equal(got.json.bookmarks.length, 1);
+    assert.deepEqual(got.json.primaryTags, []);
+    assert.equal('folder' in got.json.bookmarks[0], false);
+    await post({ op: 'add', bookmark: { url: 'https://nouveau.example' } });
+    const file = JSON.parse(store.text);
+    assert.equal(file.version, 2);
+    assert.ok(file.bookmarks.every((b) => !('folder' in b)));
   });
 
   test('opération inconnue', async () => {
