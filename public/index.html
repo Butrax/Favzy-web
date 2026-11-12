@@ -32,7 +32,7 @@
   <!-- Application -->
   <div id="app" hidden>
     <header class="topbar">
-      <button id="toggle-filters" class="btn icon only-mobile" type="button" aria-label="Filtres" aria-expanded="false">☰</button>
+      <button id="toggle-filters" class="btn icon only-mobile" type="button" aria-label="Filtres par tags" aria-expanded="false">☰</button>
       <div class="brand"><span class="brand-mark" aria-hidden="true">★</span> Favzy</div>
       <input id="search" class="search" type="search" placeholder="Rechercher… (touche /)" aria-label="Rechercher" autocomplete="off">
       <button id="add-btn" class="btn primary" type="button">+ <span class="hide-mobile">Ajouter</span></button>
@@ -40,18 +40,42 @@
     </header>
 
     <div class="layout">
-      <aside id="sidebar" class="sidebar" aria-label="Filtres">
-        <nav id="nav-main"></nav>
-        <h2>Dossiers</h2>
-        <nav id="nav-folders"></nav>
-        <h2>Tags</h2>
-        <div id="nav-tags" class="tags"></div>
+      <aside id="sidebar" class="sidebar" aria-label="Filtres par tags">
+        <button id="fav-toggle" class="nav-item" type="button" aria-pressed="false">
+          <span class="label">★ Favoris seulement</span><span id="fav-count" class="count"></span>
+        </button>
+
+        <!-- Boîte 1 : tags principaux -->
+        <section class="box" aria-labelledby="primary-title">
+          <div class="box-head">
+            <h2 id="primary-title">Tags principaux</h2>
+            <button id="manage-primary" class="icon-btn" type="button" title="Choisir les tags principaux" aria-label="Choisir les tags principaux">⚙</button>
+          </div>
+          <input id="primary-search" class="box-search" type="search" placeholder="Chercher un tag…" aria-label="Chercher un tag principal" autocomplete="off">
+          <div id="primary-list" class="tags"></div>
+          <p id="primary-note" class="note"></p>
+        </section>
+
+        <!-- Boîte 2 : tags secondaires -->
+        <section class="box" aria-labelledby="secondary-title">
+          <div class="box-head">
+            <h2 id="secondary-title">Tags secondaires</h2>
+          </div>
+          <input id="secondary-search" class="box-search" type="search" placeholder="Chercher un tag…" aria-label="Chercher un tag secondaire" autocomplete="off">
+          <div id="secondary-list" class="tags"></div>
+          <p id="secondary-note" class="note"></p>
+        </section>
       </aside>
 
       <main class="content">
+        <div id="active" class="active" hidden>
+          <span class="active-label">Filtres :</span>
+          <div id="active-chips" class="active-chips"></div>
+          <button id="reset" class="link-btn" type="button">Tout réinitialiser</button>
+        </div>
         <div class="content-head">
           <h1 id="list-title">Tous les marque-pages</h1>
-          <span id="list-count" class="muted"></span>
+          <span id="list-count" class="muted" role="status"></span>
           <label class="sort">
             <span class="sr-only">Trier par</span>
             <select id="sort">
@@ -62,7 +86,7 @@
           </label>
         </div>
         <div id="list" class="list"></div>
-        <p id="empty" class="empty" hidden></p>
+        <div id="empty" class="empty" hidden></div>
       </main>
     </div>
   </div>
@@ -84,17 +108,11 @@
         <span>Description</span>
         <textarea id="f-description" rows="2" maxlength="2000"></textarea>
       </label>
-      <div class="row">
-        <label class="field grow">
-          <span>Dossier</span>
-          <input id="f-folder" type="text" list="folder-list" placeholder="ex. Travail/Veille" autocomplete="off">
-          <datalist id="folder-list"></datalist>
-        </label>
-        <label class="field grow">
-          <span>Tags (séparés par des virgules)</span>
-          <input id="f-tags" type="text" placeholder="dev, outils" autocomplete="off">
-        </label>
-      </div>
+      <label class="field">
+        <span>Tags (séparés par des virgules)</span>
+        <input id="f-tags" type="text" placeholder="Musique, VST, Réverbération" autocomplete="off">
+      </label>
+      <div id="tag-suggestions" class="tags suggest" aria-label="Tags existants"></div>
       <label class="check"><input id="f-favorite" type="checkbox"> Favori ★</label>
       <p id="edit-error" class="error" role="alert" hidden></p>
       <div class="dialog-actions">
@@ -105,13 +123,29 @@
     </form>
   </dialog>
 
+  <!-- Choix des tags principaux -->
+  <dialog id="primary-dialog">
+    <div class="dialog-body">
+      <h2>Choisir les tags principaux</h2>
+      <p class="muted">Coche les tags qui servent de grandes catégories. Tous les autres tags de tes favoris restent des tags secondaires.</p>
+      <input id="pick-filter" class="box-search" type="search" placeholder="Chercher un tag…" aria-label="Chercher un tag" autocomplete="off">
+      <div id="pick-list" class="pick-list"></div>
+      <p id="pick-empty" class="note" hidden></p>
+      <p id="pick-count" class="muted small"></p>
+      <div class="dialog-actions">
+        <button id="primary-cancel" class="btn" type="button">Annuler</button>
+        <button id="primary-save" class="btn primary" type="button">Enregistrer</button>
+      </div>
+    </div>
+  </dialog>
+
   <!-- Outils -->
   <dialog id="tools-dialog">
     <div class="dialog-body">
       <h2>Outils</h2>
 
       <h3>Importer</h3>
-      <p class="muted">Fichier HTML exporté depuis Chrome, Firefox, Edge ou Safari — ou un export JSON de Favzy. Les doublons sont ignorés.</p>
+      <p class="muted">Fichier HTML exporté depuis Chrome, Firefox, Edge ou Safari — ou un export JSON de Favzy. Les doublons sont ignorés. Les dossiers du navigateur ne sont pas conservés : seuls les tags le sont.</p>
       <input id="import-file" type="file" accept=".html,.htm,.json,text/html,application/json">
 
       <h3>Exporter</h3>
