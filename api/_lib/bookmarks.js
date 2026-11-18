@@ -127,6 +127,34 @@ export function renameTag(data, from, to) {
   return { renamed, merged };
 }
 
+// Ajoute le même lot de tags à plusieurs favoris, sans toucher à leurs autres tags.
+// Un tag déjà présent n'est pas dupliqué ; un tag déjà connu garde son écriture (« musique » → « Musique »).
+export function addTagsToBookmarks(data, ids, tags) {
+  if (!Array.isArray(ids) || !ids.length) throw new HttpError(400, 'Aucun favori sélectionné');
+  if (ids.length > LIMITS.import) throw new HttpError(400, `Limité à ${LIMITS.import} favoris à la fois`);
+  const added = cleanTags(tags, knownTags(data));
+  if (!added.length) throw new HttpError(400, 'Aucun tag à ajouter');
+
+  const wanted = new Set(ids.map(String));
+  let updated = 0;
+  let unchanged = 0;
+  for (const bookmark of data.bookmarks) {
+    if (!wanted.has(bookmark.id)) continue;
+    const have = new Set(bookmark.tags.map(tagKey));
+    const next = [...bookmark.tags];
+    for (const tag of added) {
+      if (!have.has(tagKey(tag)) && next.length < LIMITS.tags) next.push(tag);
+    }
+    if (next.length > bookmark.tags.length) {
+      bookmark.tags = next;
+      updated++;
+    } else {
+      unchanged++;
+    }
+  }
+  return { updated, unchanged };
+}
+
 function findDuplicate(bookmarks, href, ignoreId) {
   const key = normalizeUrl(href);
   return bookmarks.find((b) => b.id !== ignoreId && normalizeUrl(b.url) === key);

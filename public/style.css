@@ -212,6 +212,15 @@ dialog::backdrop { background: rgb(0 0 0 / 0.45); }
 .pick .n { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .empty .btn { margin-top: 12px; }
 
+/* --- Sélection multiple ------------------------------------------------------ */
+.btn:disabled { opacity: 0.5; cursor: default; }
+.bulk { position: sticky; top: 64px; z-index: 5; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius); box-shadow: var(--shadow); }
+.bulk [role="status"] { margin-right: auto; font-weight: 600; }
+.mark.check { border: 0; font: inherit; font-weight: 700; font-size: 17px; text-transform: uppercase; cursor: pointer; }
+.bm.picked { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.bm.picked .mark.check { background: var(--accent); color: var(--accent-ink); }
+.content-head .btn { min-height: 34px; padding: 5px 12px; }
+
 /* --- Mobile ------------------------------------------------------------------ */
 @media (max-width: 820px) {
   .only-mobile { display: inline-flex; }

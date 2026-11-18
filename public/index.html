@@ -74,9 +74,17 @@
           <div id="active-chips" class="active-chips"></div>
           <button id="reset" class="link-btn" type="button">Tout réinitialiser</button>
         </div>
+        <div id="bulk" class="bulk" hidden>
+          <span id="bulk-count" role="status"></span>
+          <button id="bulk-all" class="btn" type="button">Tout sélectionner</button>
+          <button id="bulk-none" class="btn" type="button">Tout désélectionner</button>
+          <button id="bulk-tag" class="btn primary" type="button">Ajouter des tags…</button>
+          <button id="bulk-done" class="btn" type="button">Terminer</button>
+        </div>
         <div class="content-head">
           <h1 id="list-title">Tous les marque-pages</h1>
           <span id="list-count" class="muted" role="status"></span>
+          <button id="select-toggle" class="btn" type="button" aria-pressed="false">Sélectionner</button>
           <label class="sort">
             <span class="sr-only">Trier par</span>
             <select id="sort">
@@ -138,6 +146,25 @@
         <button id="primary-save" class="btn primary" type="button">Enregistrer</button>
       </div>
     </div>
+  </dialog>
+
+  <!-- Ajouter un lot de tags à plusieurs favoris -->
+  <dialog id="bulk-dialog">
+    <form id="bulk-form" method="dialog" class="dialog-body">
+      <h2 id="bulk-title">Ajouter des tags</h2>
+      <p id="bulk-info" class="muted"></p>
+      <label class="field">
+        <span>Tags à ajouter (séparés par des virgules)</span>
+        <input id="bulk-tags" type="text" placeholder="Musique, VST" autocomplete="off">
+      </label>
+      <div id="bulk-suggestions" class="tags suggest" aria-label="Tags existants"></div>
+      <p id="bulk-summary" class="note"></p>
+      <p id="bulk-error" class="error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button id="bulk-cancel" class="btn" type="button">Annuler</button>
+        <button id="bulk-save" class="btn primary" type="submit">Ajouter</button>
+      </div>
+    </form>
   </dialog>
 
   <!-- Renommer un tag -->

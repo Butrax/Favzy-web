@@ -14,7 +14,11 @@ const state = {
   boxQuery: { primary: '', secondary: '' },
   sort: 'recent',
   editingId: null,
+  selecting: false, // mode « sélection » pour les actions groupées
+  picked: new Set(), // ids des favoris cochés
+  lastPicked: null, // dernier favori coché (Maj+clic = plage)
 };
+let visibleIds = []; // ids des favoris affichés, dans l'ordre
 
 // Lien ouvert depuis le bookmarklet ou le menu « Partager » d'Android.
 let incoming = readIncoming();
@@ -162,6 +166,8 @@ $('#logout').addEventListener('click', async () => {
   } catch { /* déjà déconnecté */ }
   state.bookmarks = [];
   state.primaryTags = [];
+  state.picked.clear();
+  state.selecting = false;
   $('#tools-dialog').close();
   showLogin();
 });
@@ -176,6 +182,8 @@ function library() {
 function compute() {
   const { index, primaryKeys } = library();
   state.selected = state.selected.filter((key) => index.has(key)); // un tag qui n'existe plus est retiré
+  const known = new Set(state.bookmarks.map((b) => b.id));
+  for (const id of [...state.picked]) if (!known.has(id)) state.picked.delete(id); // favori supprimé : décoché
   const tokens = fold(state.query).split(/\s+/).filter(Boolean);
   const candidates = state.bookmarks.filter((b) => {
     if (state.favOnly && !b.favorite) return false;
@@ -290,13 +298,18 @@ function renderActive(view) {
 
 function card(b) {
   const host = hostOf(b.url);
-  const mark = h('div', { class: 'mark', 'aria-hidden': 'true' }, host.charAt(0) || '?');
+  const picked = state.picked.has(b.id);
+  const letter = host.charAt(0) || '?';
+  // En mode sélection, la pastille d'initiale devient une case à cocher (Maj+clic : plage).
+  const mark = state.selecting
+    ? h('button', { class: 'mark check', type: 'button', role: 'checkbox', 'data-pick': b.id, 'aria-checked': String(picked), 'aria-label': `Sélectionner ${b.title}`, onclick: (event) => togglePick(b.id, event.shiftKey) }, picked ? '✓' : letter)
+    : h('div', { class: 'mark', 'aria-hidden': 'true' }, letter);
   mark.style.setProperty('--hue', hueOf(host));
   const meta = [host, new Date(b.createdAt).toLocaleDateString('fr-FR')].join(' · ');
   const tags = [...b.tags].sort(compareText);
   return h(
     'article',
-    { class: 'bm' },
+    { class: picked ? 'bm picked' : 'bm' },
     mark,
     h(
       'div',
@@ -324,6 +337,7 @@ function renderList({ view }) {
   $('#list-title').textContent = filtersActive() ? 'Résultats' : 'Tous les marque-pages';
   const word = (count) => `${count} ${count > 1 ? 'favoris' : 'favori'}`;
   $('#list-count').textContent = filtersActive() ? `${n} sur ${word(total)}` : word(n);
+  visibleIds = view.results.map((b) => b.id);
   $('#list').replaceChildren(...view.results.map(card));
 
   const empty = $('#empty');
@@ -341,12 +355,15 @@ function renderList({ view }) {
 
 function render() {
   const focused = document.activeElement?.closest?.('[data-key]')?.dataset.key;
+  const focusedPick = document.activeElement?.dataset?.pick;
   const context = compute();
   renderBoxes(context);
   renderActive(context.view);
   renderList(context);
+  renderBulk(context.view);
   // Le bouton cliqué est reconstruit : on rend le focus à son équivalent (navigation au clavier).
   if (focused && !$('#app').hidden) document.querySelector(`button[data-key="${CSS.escape(focused)}"]`)?.focus();
+  if (focusedPick && !$('#app').hidden) document.querySelector(`button[data-pick="${CSS.escape(focusedPick)}"]`)?.focus();
 }
 
 $('#search').addEventListener('input', (event) => {
@@ -550,25 +567,38 @@ async function removeBookmark(bookmark) {
 
 const editor = $('#edit-dialog');
 
-function renderTagSuggestions() {
+// Pastilles « tags existants » sous un champ de tags : un clic ajoute ou retire le tag du champ.
+function renderSuggestions(input, container) {
   const { index } = library();
-  const current = new Set($('#f-tags').value.split(',').map(tagKey).filter(Boolean));
-  const entries = [...index.values()].sort(byName);
-  $('#tag-suggestions').replaceChildren(
-    ...entries.map((entry) =>
-      h('button', { class: 'tag', type: 'button', 'aria-pressed': String(current.has(entry.key)), onclick: () => toggleEditorTag(entry) }, entry.name),
+  const current = new Set(input.value.split(',').map(tagKey).filter(Boolean));
+  container.replaceChildren(
+    ...[...index.values()].sort(byName).map((entry) =>
+      h(
+        'button',
+        {
+          class: 'tag',
+          type: 'button',
+          'aria-pressed': String(current.has(entry.key)),
+          onclick: () => {
+            toggleListedTag(input, entry);
+            input.dispatchEvent(new Event('input')); // met à jour les pastilles et le résumé
+          },
+        },
+        entry.name,
+      ),
     ),
   );
 }
 
-function toggleEditorTag(entry) {
-  const parts = $('#f-tags').value.split(',').map((tag) => tag.trim()).filter(Boolean);
+function toggleListedTag(input, entry) {
+  const parts = input.value.split(',').map((tag) => tag.trim()).filter(Boolean);
   const at = parts.findIndex((tag) => tagKey(tag) === entry.key);
   if (at >= 0) parts.splice(at, 1);
   else parts.push(entry.name);
-  $('#f-tags').value = parts.join(', ');
-  renderTagSuggestions();
+  input.value = parts.join(', ');
 }
+
+const renderTagSuggestions = () => renderSuggestions($('#f-tags'), $('#tag-suggestions'));
 
 function openEditor(bookmark, prefill) {
   state.editingId = bookmark?.id ?? null;
@@ -670,6 +700,125 @@ for (const dialog of document.querySelectorAll('dialog')) {
     if (event.target === dialog) dialog.close();
   });
 }
+
+// --- Sélection multiple : ajouter un lot de tags à plusieurs favoris ----------------------
+
+const bulkDialog = $('#bulk-dialog');
+
+function setSelecting(on) {
+  state.selecting = on;
+  if (!on) {
+    state.picked.clear();
+    state.lastPicked = null;
+  }
+  render();
+}
+
+function togglePick(id, range = false) {
+  const on = !state.picked.has(id);
+  const last = visibleIds.indexOf(state.lastPicked);
+  if (range && last >= 0 && visibleIds.includes(id)) {
+    const [from, to] = [last, visibleIds.indexOf(id)].sort((a, b) => a - b);
+    for (const key of visibleIds.slice(from, to + 1)) {
+      if (on) state.picked.add(key);
+      else state.picked.delete(key);
+    }
+  } else if (on) {
+    state.picked.add(id);
+  } else {
+    state.picked.delete(id);
+  }
+  state.lastPicked = id;
+  render();
+}
+
+function renderBulk(view) {
+  $('#bulk').hidden = !state.selecting;
+  const toggle = $('#select-toggle');
+  toggle.setAttribute('aria-pressed', String(state.selecting));
+  toggle.textContent = state.selecting ? 'Terminer la sélection' : 'Sélectionner';
+  if (!state.selecting) return;
+  const n = state.picked.size;
+  const shown = new Set(view.results.map((b) => b.id));
+  const hidden = [...state.picked].filter((id) => !shown.has(id)).length; // cochés mais masqués par les filtres
+  $('#bulk-count').textContent = n
+    ? `${n} sélectionné${n > 1 ? 's' : ''}${hidden ? ` (dont ${hidden} masqué${hidden > 1 ? 's' : ''} par les filtres)` : ''}`
+    : 'Aucun favori sélectionné';
+  $('#bulk-all').textContent = `Tout sélectionner (${view.results.length})`;
+  $('#bulk-all').disabled = view.results.length === 0;
+  $('#bulk-none').disabled = n === 0;
+  $('#bulk-tag').disabled = n === 0;
+}
+
+const bulkNames = () => $('#bulk-tags').value.split(',').map((tag) => tag.trim()).filter(Boolean);
+
+function updateBulk() {
+  renderSuggestions($('#bulk-tags'), $('#bulk-suggestions'));
+  const { index } = library();
+  const names = bulkNames();
+  const fresh = [...new Map(names.filter((name) => !index.has(tagKey(name))).map((name) => [tagKey(name), name])).values()];
+  $('#bulk-summary').textContent = !names.length
+    ? ''
+    : fresh.length
+      ? `Nouveau${fresh.length > 1 ? 'x' : ''} tag${fresh.length > 1 ? 's' : ''} : ${fresh.map((name) => `« ${name} »`).join(', ')}`
+      : 'Tous ces tags existent déjà.';
+  $('#bulk-save').disabled = !names.length;
+}
+
+function openBulk() {
+  const n = state.picked.size;
+  if (!n) return;
+  $('#bulk-title').textContent = `Ajouter des tags à ${n} favori${n > 1 ? 's' : ''}`;
+  $('#bulk-info').textContent = `Les tags saisis sont ajoutés à ${n > 1 ? 'chacun des' : 'ce'} ${n > 1 ? `${n} favoris sélectionnés` : 'favori'} ; leurs autres tags ne changent pas.`;
+  $('#bulk-tags').value = '';
+  $('#bulk-error').hidden = true;
+  updateBulk();
+  bulkDialog.showModal();
+  $('#bulk-tags').focus();
+}
+
+$('#select-toggle').addEventListener('click', () => setSelecting(!state.selecting));
+$('#bulk-done').addEventListener('click', () => setSelecting(false));
+$('#bulk-all').addEventListener('click', () => {
+  for (const id of visibleIds) state.picked.add(id);
+  render();
+});
+$('#bulk-none').addEventListener('click', () => {
+  state.picked.clear();
+  state.lastPicked = null;
+  render();
+});
+$('#bulk-tag').addEventListener('click', openBulk);
+$('#bulk-tags').addEventListener('input', updateBulk);
+$('#bulk-cancel').addEventListener('click', () => bulkDialog.close());
+$('#bulk-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const save = $('#bulk-save');
+  if (save.disabled) return;
+  save.disabled = true;
+  save.textContent = 'Ajout…';
+  $('#bulk-error').hidden = true;
+  try {
+    const result = await api('/api/bookmarks', { method: 'POST', body: { op: 'addTags', ids: [...state.picked], tags: bulkNames() } });
+    applyData(result);
+    bulkDialog.close();
+    render();
+    const n = result.updated;
+    toast(
+      n
+        ? `Tags ajoutés à ${n} favori${n > 1 ? 's' : ''}${result.unchanged ? ` (${result.unchanged} les avaient déjà)` : ''}`
+        : 'Ces favoris ont déjà tous ces tags',
+    );
+  } catch (e) {
+    if (e.status !== 401) {
+      $('#bulk-error').textContent = e.message;
+      $('#bulk-error').hidden = false;
+    }
+  } finally {
+    save.textContent = 'Ajouter';
+    updateBulk(); // réactive le bouton si des tags sont saisis
+  }
+});
 
 // --- Outils : import, export, bookmarklet -----------------------------------------
 

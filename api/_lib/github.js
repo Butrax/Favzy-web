@@ -108,7 +108,9 @@ async function writeStore(data, sha, message) {
 export async function mutate(change, message, attempts = 4) {
   for (let attempt = 1; attempt <= attempts; attempt++) {
     const { data, sha } = await readStore();
+    const before = serialize(data);
     const result = change(data);
+    if (serialize(data) === before) return { data, result }; // rien n'a changé : pas de commit inutile
     try {
       await writeStore(data, sha, message);
       return { data, result };

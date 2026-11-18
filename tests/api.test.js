@@ -286,6 +286,45 @@ describe('marque-pages', () => {
     assert.equal(store.sha, before);
   });
 
+  test('ajouter un lot de tags à plusieurs favoris : un seul commit, casse canonique, sans doublon', async () => {
+    await post({ op: 'add', bookmark: { url: 'https://a.example', tags: 'Musique' } });
+    await post({ op: 'add', bookmark: { url: 'https://b.example', tags: 'Sport' } });
+    await post({ op: 'add', bookmark: { url: 'https://c.example' } });
+    const all = (await call(bookmarks, { cookie: session() })).json.bookmarks;
+    const id = (url) => all.find((b) => b.url === url).id;
+    assert.equal(counter, 3);
+
+    const res = await post({ op: 'addTags', ids: [id('https://a.example/'), id('https://b.example/'), 'inconnu'], tags: 'musique, Nouveau, nouveau' });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.updated, 2);
+    const tagsOf = (url) => res.json.bookmarks.find((b) => b.url === url).tags;
+    assert.deepEqual(tagsOf('https://a.example/'), ['Musique', 'Nouveau']); // « musique » déjà là : pas de doublon
+    assert.deepEqual(tagsOf('https://b.example/'), ['Sport', 'Musique', 'Nouveau']); // écriture existante reprise
+    assert.deepEqual(tagsOf('https://c.example/'), []); // non sélectionné : intact
+    assert.equal(counter, 4); // un seul commit pour tout le lot
+
+    const again = await post({ op: 'addTags', ids: [id('https://a.example/')], tags: 'Nouveau, MUSIQUE' });
+    assert.equal(again.json.updated, 0);
+    assert.equal(again.json.unchanged, 1);
+    assert.equal(counter, 4); // rien à changer : aucun commit
+
+    assert.equal((await post({ op: 'addTags', ids: [], tags: 'x' })).status, 400);
+    assert.equal((await post({ op: 'addTags', tags: 'x' })).status, 400);
+    assert.equal((await post({ op: 'addTags', ids: [id('https://a.example/')], tags: ' , ' })).status, 400);
+
+    const many = await post({ op: 'addTags', ids: [id('https://c.example/')], tags: Array.from({ length: 35 }, (_, i) => `t${i}`) });
+    assert.equal(many.json.bookmarks.find((b) => b.url === 'https://c.example/').tags.length, 30); // plafond par favori
+  });
+
+  test('une opération qui ne change rien ne crée pas de commit', async () => {
+    await post({ op: 'add', bookmark: { url: 'https://a.example', tags: 'Musique' } });
+    await post({ op: 'primaryTags', tags: ['Musique'] });
+    const writes = counter;
+    await post({ op: 'primaryTags', tags: ['musique'] }); // même liste
+    await post({ op: 'import', bookmarks: [{ url: 'https://a.example' }] }); // doublon seulement
+    assert.equal(counter, writes);
+  });
+
   test('opération inconnue', async () => {
     assert.equal((await post({ op: 'detruire-tout' })).status, 400);
   });

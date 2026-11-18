@@ -68,6 +68,13 @@ Dans « Gérer les tags » (⚙), le bouton **✎** d'un tag ouvre une fenêtre 
 
 La recherche texte (touche `/`) et « ★ Favoris seulement » se combinent avec les tags : suggestions et compteurs en tiennent compte. Rien n'est stocké comme « relation entre tags » : la coexistence se déduit des favoris.
 
+### Ajouter un lot de tags à plusieurs favoris
+1. Clique sur **Sélectionner** (au-dessus de la liste) : la pastille d'initiale de chaque carte devient une case à cocher. **Maj + clic** coche une plage de cartes.
+2. **Tout sélectionner (n)** coche tous les favoris actuellement affichés. Combiné avec les filtres, c'est le moyen le plus rapide : filtre par exemple sur « Musique », puis tout sélectionner.
+3. **Ajouter des tags…** ouvre une fenêtre : saisis les tags (séparés par des virgules) ou clique sur les tags existants. Le résumé indique les tags qui n'existent pas encore.
+
+Les tags sont ajoutés à chaque favori coché **sans toucher à ses autres tags**, sans doublon, et un tag saisi « linux » reprend l'écriture existante « Linux ». Tout le lot est enregistré en **un seul commit**. La barre indique « dont N masqués par les filtres » si des favoris cochés ne sont plus affichés ; **Terminer** quitte le mode et décoche tout. Si aucun favori n'a rien à gagner, rien n'est écrit.
+
 ### Le reste
 - **Ajout rapide** : colle une adresse, le titre et la description sont récupérés automatiquement. Les doublons sont signalés (l'ancre `#…` et les `utm_*` sont ignorés). Le formulaire propose les tags existants en un clic ; un tag saisi avec une autre casse (« musique ») reprend l'écriture existante (« Musique »). Un nouveau favori reprend les tags actuellement sélectionnés.
 - **Bookmarklet** (⚙ en haut → Outils) : glisse le bouton dans la barre de favoris ; un clic sur n'importe quelle page l'ajoute.
@@ -94,7 +101,7 @@ Les tags se comparent sans tenir compte de la casse. **Migration** : un fichier 
 npm i -g vercel
 cp .env.example .env.local     # puis remplis les valeurs
 vercel dev                     # http://localhost:3000
-npm test                       # 40 tests (API avec GitHub simulé + moteur de tags), aucun réseau
+npm test                       # 42 tests (API avec GitHub simulé + moteur de tags), aucun réseau
 ```
 
 ## Sécurité : ce qui est fait, et les limites
@@ -108,7 +115,7 @@ npm test                       # 40 tests (API avec GitHub simulé + moteur de t
 ## Limites techniques
 
 - Le fichier est lu via l'API Contents de GitHub (jusqu'à 1 Mo, soit plusieurs milliers de marque-pages). Au-delà, l'appli le signale.
-- Chaque écriture prend environ 1 seconde (un commit). Deux écritures simultanées depuis deux appareils sont gérées : l'appli relit et rejoue la modification.
+- Chaque écriture prend environ 1 seconde (un commit) ; une opération qui ne change rien n'écrit rien. Deux écritures simultanées depuis deux appareils sont gérées : l'appli relit et rejoue la modification.
 - Les favoris sans aucun tag principal ne sont atteignables que par la liste complète (aucun filtre) ou la recherche texte.
 
 ## Structure
