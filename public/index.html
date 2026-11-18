@@ -49,7 +49,7 @@
         <section class="box" aria-labelledby="primary-title">
           <div class="box-head">
             <h2 id="primary-title">Tags principaux</h2>
-            <button id="manage-primary" class="icon-btn" type="button" title="Choisir les tags principaux" aria-label="Choisir les tags principaux">⚙</button>
+            <button id="manage-primary" class="icon-btn" type="button" title="Gérer les tags (principaux, renommer)" aria-label="Gérer les tags : choisir les principaux, renommer">⚙</button>
           </div>
           <input id="primary-search" class="box-search" type="search" placeholder="Chercher un tag…" aria-label="Chercher un tag principal" autocomplete="off">
           <div id="primary-list" class="tags"></div>
@@ -60,6 +60,7 @@
         <section class="box" aria-labelledby="secondary-title">
           <div class="box-head">
             <h2 id="secondary-title">Tags secondaires</h2>
+            <button id="manage-secondary" class="icon-btn" type="button" title="Gérer les tags (principaux, renommer)" aria-label="Gérer les tags : choisir les principaux, renommer">⚙</button>
           </div>
           <input id="secondary-search" class="box-search" type="search" placeholder="Chercher un tag…" aria-label="Chercher un tag secondaire" autocomplete="off">
           <div id="secondary-list" class="tags"></div>
@@ -126,8 +127,8 @@
   <!-- Choix des tags principaux -->
   <dialog id="primary-dialog">
     <div class="dialog-body">
-      <h2>Choisir les tags principaux</h2>
-      <p class="muted">Coche les tags qui servent de grandes catégories. Tous les autres tags de tes favoris restent des tags secondaires.</p>
+      <h2>Gérer les tags</h2>
+      <p class="muted">Coche les tags qui servent de grandes catégories : ce sont les <strong>tags principaux</strong>, tous les autres restent secondaires. Le bouton ✎ renomme un tag dans tous les favoris qui le portent.</p>
       <input id="pick-filter" class="box-search" type="search" placeholder="Chercher un tag…" aria-label="Chercher un tag" autocomplete="off">
       <div id="pick-list" class="pick-list"></div>
       <p id="pick-empty" class="note" hidden></p>
@@ -137,6 +138,24 @@
         <button id="primary-save" class="btn primary" type="button">Enregistrer</button>
       </div>
     </div>
+  </dialog>
+
+  <!-- Renommer un tag -->
+  <dialog id="rename-dialog">
+    <form id="rename-form" method="dialog" class="dialog-body">
+      <h2 id="rename-title">Renommer le tag</h2>
+      <p id="rename-info" class="muted"></p>
+      <label class="field">
+        <span>Nouveau nom</span>
+        <input id="rename-input" type="text" maxlength="50" autocomplete="off" required>
+      </label>
+      <p id="rename-warning" class="warning" hidden></p>
+      <p id="rename-error" class="error" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button id="rename-cancel" class="btn" type="button">Annuler</button>
+        <button id="rename-save" class="btn primary" type="submit">Renommer</button>
+      </div>
+    </form>
   </dialog>
 
   <!-- Outils -->

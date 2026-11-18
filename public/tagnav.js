@@ -28,7 +28,10 @@ export function buildIndex(bookmarks) {
   return index;
 }
 
-const byCountThenName = (a, b) => b.count - a.count || a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' });
+// Tri alphabétique : sans tenir compte de la casse ni des accents, nombres dans l'ordre naturel
+// (« Tag 2 » avant « Tag 10 »). Les compteurs n'influencent jamais l'ordre.
+export const compareText = (a, b) => String(a).localeCompare(String(b), 'fr', { sensitivity: 'base', numeric: true });
+export const compareNames = (a, b) => compareText(a.name, b.name);
 
 /**
  * @param bookmarks     favoris candidats (déjà restreints par la recherche texte / favoris, le cas échéant)
@@ -67,7 +70,7 @@ export function analyze(bookmarks, primaryKeys, selectedKeys, index) {
   return {
     results,
     selected: selected.map((key) => ({ key, name: index.get(key)?.name ?? key, primary: primaryKeys.has(key) })),
-    primary: primary.sort(byCountThenName),
-    secondary: secondary.sort(byCountThenName),
+    primary: primary.sort(compareNames),
+    secondary: secondary.sort(compareNames),
   };
 }

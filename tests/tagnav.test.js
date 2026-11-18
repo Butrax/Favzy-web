@@ -109,7 +109,16 @@ describe('navigation par tags', () => {
     assert.ok(!asPrimary.secondary.some((t) => t.name === 'VST'));
   });
 
-  test('tri déterministe : compteur décroissant puis ordre alphabétique', () => {
+  test('tri alphabétique : sans casse ni accents, nombres dans l\'ordre naturel, compteurs sans effet', () => {
+    const lib = [fav('a', 'Zèbre', 'alpha', 'Été', 'tag 10', 'Tag 2'), fav('b', 'Zèbre', 'Zèbre2')];
+    const view = analyze(lib, new Set(['zèbre']), [], buildIndex(lib));
+    assert.deepEqual(view.secondary.map((t) => t.name), ['alpha', 'Été', 'Tag 2', 'tag 10', 'Zèbre2']);
+    assert.deepEqual(view.primary.map((t) => [t.name, t.count]), [['Zèbre', 2]]);
+    const both = analyze(lib, new Set(), [], buildIndex(lib));
+    assert.deepEqual(both.secondary.map((t) => t.name), ['alpha', 'Été', 'Tag 2', 'tag 10', 'Zèbre', 'Zèbre2']); // Zèbre (2 favoris) reste après alpha (1)
+  });
+
+  test('tri déterministe des suggestions', () => {
     const view = run();
     assert.deepEqual(view.secondary.map((t) => t.name), ['Course à pied', 'Instruments', 'Linux', 'MAO', 'Mixage', 'Réverbération', 'VST']);
     assert.deepEqual(run('Informatique').secondary.map((t) => t.name), run('Informatique').secondary.map((t) => t.name));

@@ -1,7 +1,7 @@
 // Favzy — interface (JavaScript natif, aucune dépendance).
 // Tout le texte venant des données est inséré via textContent / createTextNode : jamais d'innerHTML.
 import { buildNetscape, parseNetscape } from './netscape.js';
-import { analyze, buildIndex, fold, tagKey } from './tagnav.js';
+import { analyze, buildIndex, compareNames, compareText, fold, tagKey } from './tagnav.js';
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -61,7 +61,7 @@ const hostOf = (href) => {
 };
 const safeHref = (href) => (/^https?:\/\//i.test(href) ? href : '#');
 const hueOf = (text) => [...text].reduce((sum, c) => (sum * 31 + c.charCodeAt(0)) % 360, 7);
-const byName = (a, b) => a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' });
+const byName = compareNames; // tri alphabétique des tags, partout
 
 let toastTimer;
 function toast(message, bad = false) {
@@ -240,7 +240,8 @@ function renderBoxes({ index, primaryKeys, view }) {
 
   // Boîte 1 : tags principaux sélectionnés (en tête) puis ceux qui restent compatibles avec la sélection.
   const picked = view.selected.filter((tag) => tag.primary).map((tag) => ({ ...tag, count: view.results.length, selected: true }));
-  const primary = [...picked, ...view.primary.map((tag) => ({ ...tag, selected: false }))];
+  // Ordre alphabétique pour l'ensemble : un tag ne change pas de place quand on le sélectionne.
+  const primary = [...picked, ...view.primary.map((tag) => ({ ...tag, selected: false }))].sort(byName);
   fillBox(
     'primary',
     primary,
@@ -287,12 +288,12 @@ function renderActive(view) {
   $('#active').hidden = !filtersActive();
 }
 
-function card(b, index, primaryKeys) {
+function card(b) {
   const host = hostOf(b.url);
   const mark = h('div', { class: 'mark', 'aria-hidden': 'true' }, host.charAt(0) || '?');
   mark.style.setProperty('--hue', hueOf(host));
   const meta = [host, new Date(b.createdAt).toLocaleDateString('fr-FR')].join(' · ');
-  const tags = [...b.tags].sort((x, y) => primaryKeys.has(tagKey(y)) - primaryKeys.has(tagKey(x)));
+  const tags = [...b.tags].sort(compareText);
   return h(
     'article',
     { class: 'bm' },
@@ -317,13 +318,13 @@ function card(b, index, primaryKeys) {
   );
 }
 
-function renderList({ index, primaryKeys, view }) {
+function renderList({ view }) {
   const total = state.bookmarks.length;
   const n = view.results.length;
   $('#list-title').textContent = filtersActive() ? 'Résultats' : 'Tous les marque-pages';
   const word = (count) => `${count} ${count > 1 ? 'favoris' : 'favori'}`;
   $('#list-count').textContent = filtersActive() ? `${n} sur ${word(total)}` : word(n);
-  $('#list').replaceChildren(...view.results.map((b) => card(b, index, primaryKeys)));
+  $('#list').replaceChildren(...view.results.map(card));
 
   const empty = $('#empty');
   empty.hidden = n > 0;
@@ -410,7 +411,12 @@ function renderPick() {
         else pickChecked.delete(entry.key);
         updatePickCount();
       });
-      return h('label', { class: 'pick' }, input, h('span', { class: 'pick-name' }, entry.name), h('span', { class: 'n' }, entry.total));
+      return h(
+        'div',
+        { class: 'pick' },
+        h('label', { class: 'pick-main' }, input, h('span', { class: 'pick-name' }, entry.name), h('span', { class: 'n' }, entry.total)),
+        h('button', { class: 'icon-btn', type: 'button', title: `Renommer « ${entry.name} »`, 'aria-label': `Renommer ${entry.name}`, onclick: () => openRename(entry) }, '✎'),
+      );
     });
   $('#pick-list').replaceChildren(...rows);
   const note = $('#pick-empty');
@@ -419,15 +425,84 @@ function renderPick() {
   updatePickCount();
 }
 
-$('#manage-primary').addEventListener('click', () => {
+function openManage() {
   const { index, primaryKeys } = library();
   pickEntries = [...index.values()].sort(byName);
   pickChecked = new Set(pickEntries.filter((entry) => primaryKeys.has(entry.key)).map((entry) => entry.key));
   $('#pick-filter').value = '';
   renderPick();
   primaryDialog.showModal();
-});
+}
+$('#manage-primary').addEventListener('click', openManage);
+$('#manage-secondary').addEventListener('click', openManage);
 $('#pick-filter').addEventListener('input', renderPick);
+
+// --- Renommer un tag : appliqué à tous les favoris qui le portent ------------------------
+
+const renameDialog = $('#rename-dialog');
+let renaming = null; // { key, name, total } du tag en cours de renommage
+
+const cleanName = () => $('#rename-input').value.trim().replace(/\s+/g, ' ');
+
+function checkRename() {
+  const value = cleanName();
+  const key = tagKey(value);
+  const clash = key && key !== renaming.key ? library().index.get(key) : null; // un autre tag porte déjà ce nom
+  const warning = $('#rename-warning');
+  warning.hidden = !clash;
+  if (clash) warning.textContent = `« ${clash.name} » existe déjà (${clash.total} favori${clash.total > 1 ? 's' : ''}) : les deux tags seront fusionnés.`;
+  const comma = value.includes(',');
+  const error = $('#rename-error');
+  error.hidden = !comma;
+  error.textContent = comma ? 'Un tag ne peut pas contenir de virgule.' : '';
+  $('#rename-save').disabled = !key || comma || value === renaming.name;
+  $('#rename-save').textContent = clash ? 'Fusionner' : 'Renommer';
+}
+
+function openRename(entry) {
+  renaming = entry;
+  $('#rename-title').textContent = `Renommer « ${entry.name} »`;
+  $('#rename-info').textContent = `Ce tag est porté par ${entry.total} favori${entry.total > 1 ? 's' : ''} : ${entry.total > 1 ? 'ils seront tous mis à jour' : 'il sera mis à jour'}.`;
+  $('#rename-input').value = entry.name;
+  checkRename();
+  renameDialog.showModal();
+  $('#rename-input').select();
+}
+
+$('#rename-input').addEventListener('input', checkRename);
+$('#rename-cancel').addEventListener('click', () => renameDialog.close());
+$('#rename-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const save = $('#rename-save');
+  if (save.disabled) return;
+  const to = cleanName();
+  const { key: oldKey, name: from } = renaming;
+  save.disabled = true;
+  try {
+    const result = await api('/api/bookmarks', { method: 'POST', body: { op: 'renameTag', from, to } });
+    applyData(result);
+    const newKey = tagKey(to);
+    // Le filtre actif et la case « principal » en attente suivent le tag renommé.
+    const at = state.selected.indexOf(oldKey);
+    if (at >= 0) {
+      state.selected.splice(at, 1);
+      if (!state.selected.includes(newKey)) state.selected.splice(at, 0, newKey);
+    }
+    if (pickChecked.delete(oldKey)) pickChecked.add(newKey);
+    pickEntries = [...library().index.values()].sort(byName);
+    renderPick();
+    render();
+    renameDialog.close();
+    const n = result.renamed;
+    toast(result.merged ? `Tags fusionnés (${n} favori${n > 1 ? 's' : ''} mis à jour)` : `Tag renommé dans ${n} favori${n > 1 ? 's' : ''}`);
+  } catch (e) {
+    if (e.status !== 401) {
+      $('#rename-error').textContent = e.message;
+      $('#rename-error').hidden = false;
+    }
+    save.disabled = false;
+  }
+});
 $('#primary-cancel').addEventListener('click', () => primaryDialog.close());
 $('#primary-save').addEventListener('click', async (event) => {
   const button = event.currentTarget;
@@ -476,11 +551,9 @@ async function removeBookmark(bookmark) {
 const editor = $('#edit-dialog');
 
 function renderTagSuggestions() {
-  const { index, primaryKeys } = library();
+  const { index } = library();
   const current = new Set($('#f-tags').value.split(',').map(tagKey).filter(Boolean));
-  const entries = [...index.values()].sort(
-    (a, b) => primaryKeys.has(b.key) - primaryKeys.has(a.key) || b.total - a.total || byName(a, b),
-  );
+  const entries = [...index.values()].sort(byName);
   $('#tag-suggestions').replaceChildren(
     ...entries.map((entry) =>
       h('button', { class: 'tag', type: 'button', 'aria-pressed': String(current.has(entry.key)), onclick: () => toggleEditorTag(entry) }, entry.name),

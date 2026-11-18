@@ -202,9 +202,11 @@ dialog::backdrop { background: rgb(0 0 0 / 0.45); }
 
 .suggest { max-height: 96px; overflow-y: auto; margin: -4px 0 12px; }
 .pick-list { max-height: 46dvh; overflow-y: auto; margin-bottom: 8px; border: 1px solid var(--border); border-radius: 8px; }
-.pick { display: flex; align-items: center; gap: 10px; padding: 9px 12px; cursor: pointer; border-bottom: 1px solid var(--border); }
+.pick { display: flex; align-items: center; border-bottom: 1px solid var(--border); }
 .pick:last-child { border-bottom: 0; }
 .pick:hover { background: var(--surface-2); }
+.pick-main { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; padding: 9px 12px; cursor: pointer; }
+.pick .icon-btn { margin-right: 6px; flex: none; }
 .pick input { width: 18px; height: 18px; accent-color: var(--accent); }
 .pick-name { flex: 1; overflow-wrap: anywhere; }
 .pick .n { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }

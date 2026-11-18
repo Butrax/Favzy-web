@@ -1,5 +1,5 @@
 import { requireAuth } from './_lib/auth.js';
-import { addBookmark, deleteBookmark, importBookmarks, setPrimaryTags, updateBookmark } from './_lib/bookmarks.js';
+import { addBookmark, deleteBookmark, importBookmarks, renameTag, setPrimaryTags, updateBookmark } from './_lib/bookmarks.js';
 import { mutate, readStore } from './_lib/github.js';
 import { HttpError, readJson, send, sendError, sameOrigin } from './_lib/http.js';
 
@@ -42,6 +42,10 @@ export default async function handler(req, res) {
         message = 'Tags principaux';
         change = (data) => setPrimaryTags(data, body.tags);
         break;
+      case 'renameTag':
+        message = `Tag renommé : ${short(body.from)} → ${short(body.to)}`;
+        change = (data) => renameTag(data, body.from, body.to);
+        break;
       case 'import':
         message = `Import de ${Array.isArray(body.bookmarks) ? body.bookmarks.length : 0} marque-pages`;
         change = (data) => {
@@ -56,7 +60,7 @@ export default async function handler(req, res) {
     }
 
     const { data, result } = await mutate(change, message);
-    const extra = body.op === 'import' ? result : {};
+    const extra = body.op === 'import' || body.op === 'renameTag' ? result : {};
     send(res, 200, { bookmarks: data.bookmarks, primaryTags: data.primaryTags, ...extra });
   } catch (error) {
     sendError(res, error);

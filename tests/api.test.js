@@ -241,6 +241,51 @@ describe('marque-pages', () => {
     assert.ok(file.bookmarks.every((b) => !('folder' in b)));
   });
 
+  test('renommer un tag : appliqué à tous les favoris, tag principal suivi, casse seule acceptée', async () => {
+    await post({ op: 'add', bookmark: { url: 'https://a.example', tags: 'Musique, VST' } });
+    await post({ op: 'add', bookmark: { url: 'https://b.example', tags: 'vst, Sport' } });
+    await post({ op: 'add', bookmark: { url: 'https://c.example', tags: 'Sport' } });
+    await post({ op: 'primaryTags', tags: ['Sport'] });
+
+    const res = await post({ op: 'renameTag', from: 'VST', to: 'Plugin VST' });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.renamed, 2);
+    assert.equal(res.json.merged, false);
+    const tagsOf = (json, url) => json.bookmarks.find((b) => b.url === url).tags;
+    assert.deepEqual(tagsOf(res.json, 'https://a.example/'), ['Musique', 'Plugin VST']);
+    assert.deepEqual(tagsOf(res.json, 'https://b.example/'), ['Plugin VST', 'Sport']);
+    assert.deepEqual(saved().map((b) => b.tags.includes('VST')), [false, false, false]); // rien ne reste de l'ancien nom
+
+    const sport = await post({ op: 'renameTag', from: 'Sport', to: 'Sports' }); // un tag principal reste principal
+    assert.equal(sport.json.renamed, 2);
+    assert.deepEqual(sport.json.primaryTags, ['Sports']);
+
+    const recase = await post({ op: 'renameTag', from: 'Musique', to: 'musique' });
+    assert.deepEqual(tagsOf(recase.json, 'https://a.example/'), ['musique', 'Plugin VST']);
+  });
+
+  test('renommer vers un tag existant fusionne les deux, sans doublon, en gardant le statut principal', async () => {
+    await post({ op: 'add', bookmark: { url: 'https://a.example', tags: 'Info, Informatique' } });
+    await post({ op: 'add', bookmark: { url: 'https://b.example', tags: 'Info' } });
+    await post({ op: 'primaryTags', tags: ['Info'] });
+    const res = await post({ op: 'renameTag', from: 'Info', to: 'informatique' });
+    assert.equal(res.json.merged, true);
+    const tagsOf = (url) => res.json.bookmarks.find((b) => b.url === url).tags;
+    assert.deepEqual(tagsOf('https://a.example/'), ['Informatique']); // le favori qui avait les deux n'a plus de doublon
+    assert.deepEqual(tagsOf('https://b.example/'), ['Informatique']); // l'écriture existante est reprise
+    assert.deepEqual(res.json.primaryTags, ['Informatique']);
+  });
+
+  test('renommer : erreurs claires et aucune écriture en cas d\'erreur', async () => {
+    await post({ op: 'add', bookmark: { url: 'https://a.example', tags: 'Musique' } });
+    const before = store.sha;
+    assert.equal((await post({ op: 'renameTag', from: 'Absent', to: 'X' })).status, 404);
+    assert.equal((await post({ op: 'renameTag', from: 'Musique', to: '   ' })).status, 400);
+    assert.equal((await post({ op: 'renameTag', from: 'Musique', to: 'a, b' })).status, 400);
+    assert.equal((await post({ op: 'renameTag', from: 'Musique', to: 'Musique' })).status, 400); // aucun changement
+    assert.equal(store.sha, before);
+  });
+
   test('opération inconnue', async () => {
     assert.equal((await post({ op: 'detruire-tout' })).status, 400);
   });

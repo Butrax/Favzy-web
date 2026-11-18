@@ -79,6 +79,54 @@ export function setPrimaryTags(data, names) {
   return data.primaryTags;
 }
 
+// Remplace un tag dans une liste (en gardant sa place) et retire les doublons créés par la fusion.
+function remapTag(list, fromKey, target) {
+  const out = [];
+  const seen = new Set();
+  for (const tag of list ?? []) {
+    const name = tagKey(tag) === fromKey ? target : tag;
+    const key = tagKey(name);
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(name);
+    }
+  }
+  return out;
+}
+
+const sameList = (a, b) => a.length === b.length && a.every((value, i) => value === b[i]);
+
+// Renomme un tag dans TOUS les favoris qui le portent (et dans les tags principaux).
+//  - nouveau nom déjà utilisé par un autre tag → fusion, sans doublon, avec l'écriture existante ;
+//  - le tag reste principal s'il l'était (ou si celui dans lequel il fusionne l'est) ;
+//  - changement de casse seul (« musique » → « Musique ») accepté.
+export function renameTag(data, from, to) {
+  const fromKey = tagKey(from);
+  const name = text(to, LIMITS.tag);
+  const toKey = tagKey(name);
+  if (!toKey) throw new HttpError(400, 'Le nom du tag ne peut pas être vide');
+  if (name.includes(',')) throw new HttpError(400, 'Un tag ne peut pas contenir de virgule');
+  const used = knownTags(data, { withPrimary: false });
+  if (!used.has(fromKey)) throw new HttpError(404, 'Tag introuvable');
+
+  const merged = toKey !== fromKey && used.has(toKey);
+  const target = fromKey === toKey ? name : (knownTags(data).get(toKey) ?? name);
+
+  let renamed = 0;
+  for (const bookmark of data.bookmarks) {
+    const next = remapTag(bookmark.tags, fromKey, target);
+    if (!sameList(next, bookmark.tags ?? [])) {
+      bookmark.tags = next;
+      renamed++;
+    }
+  }
+  const primary = remapTag(data.primaryTags, fromKey, target);
+  const primaryChanged = !sameList(primary, data.primaryTags ?? []);
+  if (!renamed && !primaryChanged) throw new HttpError(400, 'Aucun changement');
+  data.primaryTags = primary;
+  return { renamed, merged };
+}
+
 function findDuplicate(bookmarks, href, ignoreId) {
   const key = normalizeUrl(href);
   return bookmarks.find((b) => b.id !== ignoreId && normalizeUrl(b.url) === key);

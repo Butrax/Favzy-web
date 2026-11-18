@@ -52,11 +52,19 @@ Si une variable manque, la page de connexion affiche précisément laquelle.
 ### Navigation par tags (il n'y a plus de dossiers)
 Chaque favori porte des **tags**. Certains sont **principaux** (les grandes catégories : Musique, Informatique, Sport…), tous les autres sont **secondaires**.
 
-1. **Boîte « Tags principaux »** : le bouton **⚙** ouvre la liste de *tous* les tags de tes favoris ; coche ceux qui sont des tags principaux, puis Enregistrer. Tant qu'aucun n'est défini, la boîte te l'indique.
+1. **Boîte « Tags principaux »** : le bouton **⚙** (présent aussi dans la boîte des secondaires) ouvre la fenêtre « Gérer les tags », qui liste *tous* les tags de tes favoris ; coche ceux qui sont des tags principaux, puis Enregistrer. Tant qu'aucun n'est défini, la boîte te l'indique.
 2. Clique sur un ou plusieurs tags principaux. Les autres tags principaux sont filtrés : seuls restent ceux qui existent sur au moins un favori de la sélection (Musique + Sport est masqué s'aucun favori n'a les deux).
 3. **Boîte « Tags secondaires »** : une liste unique des tags qui coexistent avec ta sélection, avec leur nombre de favoris. Elle reste vide tant que tu n'as rien sélectionné (jamais tous les secondaires d'un coup) ; sa recherche permet de retrouver directement un tag.
 4. **Logique ET stricte** : un favori doit avoir *tous* les tags sélectionnés. Tout est recalculé en direct, sans bouton « Appliquer ».
 5. Les filtres actifs restent visibles en haut de la liste, chacun se retire d'un clic sur ✕ ; **Tout réinitialiser** remet tout à zéro. Retirer un filtre ne touche pas aux autres et réaffiche les tags redevenus pertinents. Un clic sur le tag d'une carte l'ajoute aux filtres.
+
+Les tags sont **toujours triés par ordre alphabétique** (boîtes, cartes, suggestions) : sans tenir compte de la casse ni des accents, et dans l'ordre naturel pour les nombres (« Tag 2 » avant « Tag 10 »). Le nombre de favoris n'influence jamais l'ordre, donc un tag ne change pas de place quand on le sélectionne.
+
+### Renommer un tag
+Dans « Gérer les tags » (⚙), le bouton **✎** d'un tag ouvre une fenêtre de renommage. Le nouveau nom est appliqué **à tous les favoris qui portent ce tag**, en une seule modification (un seul commit dans `favzy-stock`) :
+- si le tag était principal, il le reste ; si un filtre actif portait son nom, le filtre suit ;
+- si le nouveau nom est celui d'un **autre tag existant**, les deux tags sont **fusionnés** : la fenêtre te prévient et le bouton devient « Fusionner ». Un favori qui avait les deux n'a plus de doublon, et le tag fusionné est principal si l'un des deux l'était ;
+- un simple changement de casse (« musique » → « Musique ») est accepté. Une virgule est refusée (elle sépare les tags).
 
 La recherche texte (touche `/`) et « ★ Favoris seulement » se combinent avec les tags : suggestions et compteurs en tiennent compte. Rien n'est stocké comme « relation entre tags » : la coexistence se déduit des favoris.
 
@@ -86,7 +94,7 @@ Les tags se comparent sans tenir compte de la casse. **Migration** : un fichier 
 npm i -g vercel
 cp .env.example .env.local     # puis remplis les valeurs
 vercel dev                     # http://localhost:3000
-npm test                       # 36 tests (API avec GitHub simulé + moteur de tags), aucun réseau
+npm test                       # 40 tests (API avec GitHub simulé + moteur de tags), aucun réseau
 ```
 
 ## Sécurité : ce qui est fait, et les limites
