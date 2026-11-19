@@ -25,7 +25,7 @@ const escapeHtml = (value) =>
   String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 export function buildNetscape(bookmarks) {
-  const lines = bookmarks.map((b) => {
+  const lines = bookmarks.filter((b) => b.url).map((b) => {
     const date = Math.floor(new Date(b.createdAt).getTime() / 1000) || 0;
     const tags = b.tags?.length ? ` TAGS="${escapeHtml(b.tags.join(','))}"` : '';
     const description = b.description ? `\n    <DD>${escapeHtml(b.description)}` : '';

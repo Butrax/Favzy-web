@@ -2,7 +2,7 @@
 import crypto from 'node:crypto';
 import { HttpError } from './http.js';
 
-const LIMITS = { url: 2048, title: 300, description: 2000, tag: 50, tags: 30, primary: 200, import: 5000 };
+const LIMITS = { url: 2048, title: 300, description: 5000, tag: 50, tags: 30, primary: 200, import: 5000 };
 
 // Identité d'un tag : insensible à la casse (« Musique » = « musique »).
 // Même définition que tagKey dans public/tagnav.js.
@@ -10,6 +10,7 @@ export const tagKey = (name) => String(name ?? '').normalize('NFC').trim().toLow
 
 // Même logique que normalizeUrl dans public/app.js (détection de doublons côté client).
 export function normalizeUrl(href) {
+  if (!href) return ''; // une note n'a pas d'URL
   const url = new URL(href);
   url.hash = '';
   for (const key of [...url.searchParams.keys()]) {
@@ -33,7 +34,34 @@ export function cleanUrl(value) {
   return url.href;
 }
 
+// URL facultative : vide = note textuelle.
+export function optionalUrl(value) {
+  return String(value ?? '').trim() ? cleanUrl(value) : '';
+}
+
 const text = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+
+// Texte multi-lignes (description) : les retours à la ligne sont conservés,
+// les espaces en fin de ligne et les séries de lignes vides sont réduits.
+const multiline = (value, max) =>
+  String(value ?? '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/ ?\n ?/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .slice(0, max)
+    .trim();
+
+// Titre : celui saisi, sinon le nom de domaine, sinon (note) la première ligne de la description.
+function titleFor(url, title, description) {
+  const given = text(title, LIMITS.title);
+  if (given) return given;
+  if (url) return new URL(url).hostname;
+  const first = text(description.split('\n').find((line) => line.trim()), LIMITS.title);
+  if (first) return first;
+  throw new HttpError(400, 'Une note a besoin d\u2019un titre ou d\u2019une description');
+}
 
 // Écriture connue de chaque tag de la bibliothèque. Un tag saisi « musique » reprend
 // l'écriture « Musique » si elle existe déjà : pas de doublons qui ne diffèrent que par la casse.
@@ -157,6 +185,7 @@ export function addTagsToBookmarks(data, ids, tags) {
 
 function findDuplicate(bookmarks, href, ignoreId) {
   const key = normalizeUrl(href);
+  if (!key) return undefined; // les notes n'ont pas d'URL : jamais de doublon
   return bookmarks.find((b) => b.id !== ignoreId && normalizeUrl(b.url) === key);
 }
 
@@ -165,14 +194,15 @@ function duplicateError(existing) {
 }
 
 export function addBookmark(data, input, { force = false } = {}) {
-  const url = cleanUrl(input?.url);
+  const url = optionalUrl(input?.url);
   const existing = findDuplicate(data.bookmarks, url);
   if (existing && !force) throw duplicateError(existing);
+  const description = multiline(input?.description, LIMITS.description);
   const bookmark = {
     id: crypto.randomUUID(),
     url,
-    title: text(input?.title, LIMITS.title) || new URL(url).hostname,
-    description: text(input?.description, LIMITS.description),
+    title: titleFor(url, input?.title, description),
+    description,
     tags: cleanTags(input?.tags, knownTags(data)),
     favorite: Boolean(input?.favorite),
     createdAt: new Date().toISOString(),
@@ -185,13 +215,15 @@ export function updateBookmark(data, id, patch = {}, { force = false } = {}) {
   const bookmark = data.bookmarks.find((b) => b.id === id);
   if (!bookmark) throw new HttpError(404, 'Marque-page introuvable');
   if ('url' in patch) {
-    const url = cleanUrl(patch.url);
+    const url = optionalUrl(patch.url);
     const existing = findDuplicate(data.bookmarks, url, id);
     if (existing && !force) throw duplicateError(existing);
     bookmark.url = url;
   }
-  if ('title' in patch) bookmark.title = text(patch.title, LIMITS.title) || new URL(bookmark.url).hostname;
-  if ('description' in patch) bookmark.description = text(patch.description, LIMITS.description);
+  if ('description' in patch) bookmark.description = multiline(patch.description, LIMITS.description);
+  if ('title' in patch || 'url' in patch || 'description' in patch) {
+    bookmark.title = titleFor(bookmark.url, 'title' in patch ? patch.title : bookmark.title, bookmark.description);
+  }
   if ('tags' in patch) bookmark.tags = cleanTags(patch.tags, knownTags(data, { exceptId: id }));
   if ('favorite' in patch) bookmark.favorite = Boolean(patch.favorite);
   return bookmark;
@@ -207,19 +239,23 @@ export function deleteBookmark(data, id) {
 export function importBookmarks(data, items) {
   if (!Array.isArray(items)) throw new HttpError(400, 'Liste de marque-pages attendue');
   if (items.length > LIMITS.import) throw new HttpError(400, `Import limité à ${LIMITS.import} marque-pages à la fois`);
-  const urls = new Set(data.bookmarks.map((b) => normalizeUrl(b.url)));
+  const urls = new Set(data.bookmarks.map((b) => (b.url ? normalizeUrl(b.url) : `note\n${b.title}\n${b.description}`)));
   const known = knownTags(data);
   const fresh = [];
   let skipped = 0;
   for (const item of items) {
     let url;
+    let title;
+    const description = multiline(item?.description, LIMITS.description);
     try {
-      url = cleanUrl(item?.url);
+      url = optionalUrl(item?.url);
+      title = titleFor(url, item?.title, description);
     } catch {
       skipped++;
       continue;
     }
-    const key = normalizeUrl(url);
+    // Une note (sans URL) est reconnue par son titre + sa description : réimporter ne la duplique pas.
+    const key = url ? normalizeUrl(url) : `note\n${title}\n${description}`;
     if (urls.has(key)) {
       skipped++;
       continue;
@@ -229,8 +265,8 @@ export function importBookmarks(data, items) {
     fresh.push({
       id: crypto.randomUUID(),
       url,
-      title: text(item?.title, LIMITS.title) || new URL(url).hostname,
-      description: text(item?.description, LIMITS.description),
+      title,
+      description,
       tags: cleanTags(item?.tags, known),
       favorite: Boolean(item?.favorite),
       createdAt: Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString(),

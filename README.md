@@ -75,6 +75,11 @@ La recherche texte (touche `/`) et « ★ Favoris seulement » se combinent avec
 
 Les tags sont ajoutés à chaque favori coché **sans toucher à ses autres tags**, sans doublon, et un tag saisi « linux » reprend l'écriture existante « Linux ». Tout le lot est enregistré en **un seul commit**. La barre indique « dont N masqués par les filtres » si des favoris cochés ne sont plus affichés ; **Terminer** quitte le mode et décoche tout. Si aucun favori n'a rien à gagner, rien n'est écrit.
 
+### Descriptions multi-lignes et notes
+- La **description** conserve les retours à la ligne (saisie, enregistrement et affichage). Les espaces en trop et les séries de plus de deux lignes vides sont réduits. Limite : 5 000 caractères ; une carte de lien en affiche 4 lignes au plus.
+- **Une note** est un favori **sans URL** : laisse le champ adresse vide. Il faut alors un titre ou une description (sans titre, la première ligne de la description sert de titre). Une note s'affiche en entier, avec la pastille ✎ et « Note » à la place du site ; elle a des tags, peut être mise en favori, filtrée, cherchée et sélectionnée comme les autres. Elle n'est jamais signalée comme doublon.
+- Ajouter une adresse à une note la transforme en lien, et inversement. L'**import/export JSON** garde les notes ; l'**export HTML** (format des navigateurs) les omet, faute d'adresse.
+
 ### Le reste
 - **Ajout rapide** : colle une adresse, le titre et la description sont récupérés automatiquement. Les doublons sont signalés (l'ancre `#…` et les `utm_*` sont ignorés). Le formulaire propose les tags existants en un clic ; un tag saisi avec une autre casse (« musique ») reprend l'écriture existante (« Musique »). Un nouveau favori reprend les tags actuellement sélectionnés. À l'ajout, le bouton **« Reprendre les tags du dernier favori »** ajoute d'un clic tous les tags du favori le plus récent (selon sa date d'ajout) à ceux déjà saisis ; il disparaît quand ils sont tous repris et n'est pas proposé à la modification.
 - **Bookmarklet** (⚙ en haut → Outils) : glisse le bouton dans la barre de favoris ; un clic sur n'importe quelle page l'ajoute.
@@ -101,7 +106,7 @@ Les tags se comparent sans tenir compte de la casse. **Migration** : un fichier 
 npm i -g vercel
 cp .env.example .env.local     # puis remplis les valeurs
 vercel dev                     # http://localhost:3000
-npm test                       # 42 tests (API avec GitHub simulé + moteur de tags), aucun réseau
+npm test                       # 46 tests (API avec GitHub simulé + moteur de tags), aucun réseau
 ```
 
 ## Sécurité : ce qui est fait, et les limites

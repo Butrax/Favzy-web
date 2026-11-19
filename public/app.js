@@ -315,9 +315,10 @@ function renderActive(view) {
 }
 
 function card(b) {
-  const host = hostOf(b.url);
+  const isNote = !b.url;
+  const host = isNote ? 'Note' : hostOf(b.url);
   const picked = state.picked.has(b.id);
-  const letter = host.charAt(0) || '?';
+  const letter = isNote ? '✎' : host.charAt(0) || '?';
   // En mode sélection, la pastille d'initiale devient une case à cocher (Maj+clic : plage).
   const mark = state.selecting
     ? h('button', { class: 'mark check', type: 'button', role: 'checkbox', 'data-pick': b.id, 'aria-checked': String(picked), 'aria-label': `Sélectionner ${b.title}`, onclick: (event) => togglePick(b.id, event.shiftKey) }, picked ? '✓' : letter)
@@ -332,9 +333,11 @@ function card(b) {
     h(
       'div',
       { class: 'bm-main' },
-      h('a', { class: 'bm-title', href: safeHref(b.url), target: '_blank', rel: 'noopener noreferrer' }, b.title),
+      isNote
+        ? h('div', { class: 'bm-title' }, b.title)
+        : h('a', { class: 'bm-title', href: safeHref(b.url), target: '_blank', rel: 'noopener noreferrer' }, b.title),
       h('div', { class: 'bm-meta' }, meta),
-      b.description ? h('p', { class: 'bm-desc' }, b.description) : null,
+      b.description ? h('p', { class: isNote ? 'bm-desc note-text' : 'bm-desc' }, b.description) : null,
       tags.length
         ? h('div', { class: 'bm-tags' }, tags.map((tag) => h('button', { class: 'tag', type: 'button', title: 'Filtrer sur ce tag', onclick: () => addTagFilter(tagKey(tag)) }, tag)))
         : null,
@@ -670,7 +673,10 @@ function updateDuplicateWarning() {
 
 async function fetchTitle({ silent = false } = {}) {
   const url = $('#f-url').value.trim();
-  if (!url) return;
+  if (!url) {
+    if (!silent) toast('Saisis d\u2019abord une adresse (sans adresse, le favori est une note)', true);
+    return;
+  }
   const button = $('#fetch-title');
   button.disabled = true;
   button.textContent = 'recherche…';

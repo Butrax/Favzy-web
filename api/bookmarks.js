@@ -27,7 +27,7 @@ export default async function handler(req, res) {
 
     switch (body.op) {
       case 'add':
-        message = `Ajout : ${short(body.bookmark?.title || body.bookmark?.url)}`;
+        message = `Ajout : ${short(body.bookmark?.title || body.bookmark?.url || body.bookmark?.description || 'note')}`;
         change = (data) => addBookmark(data, body.bookmark, { force });
         break;
       case 'update':

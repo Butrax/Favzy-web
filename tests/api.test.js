@@ -325,6 +325,59 @@ describe('marque-pages', () => {
     assert.equal(counter, writes);
   });
 
+  test('description : les retours à la ligne sont conservés (modification comprise)', async () => {
+    let res = await post({ op: 'add', bookmark: { url: 'https://multi.example', description: 'ligne 1\r\n  ligne 2  \n\n\n\nligne 4' } });
+    assert.equal(res.json.bookmarks[0].description, 'ligne 1\nligne 2\n\nligne 4');
+    const id = res.json.bookmarks[0].id;
+    res = await post({ op: 'update', id, patch: { description: 'a\nb' } });
+    assert.equal(res.json.bookmarks[0].description, 'a\nb');
+    assert.equal(res.json.bookmarks[0].title, 'multi.example');
+  });
+
+  test('favori sans URL = note : titre ou description requis, jamais de doublon', async () => {
+    let res = await post({ op: 'add', bookmark: { title: 'Idée', description: 'à noter\nplus tard', tags: 'Perso' } });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.bookmarks[0].url, '');
+    assert.equal(res.json.bookmarks[0].title, 'Idée');
+    // Sans titre : première ligne de la description.
+    res = await post({ op: 'add', bookmark: { description: '\n  Liste de courses\nlait' } });
+    assert.equal(res.json.bookmarks[0].title, 'Liste de courses');
+    // Deux notes identiques : pas de blocage « doublon ».
+    res = await post({ op: 'add', bookmark: { title: 'Idée' } });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.bookmarks.length, 3);
+    // Ni titre, ni description, ni URL : refusé, rien n'est écrit.
+    const before = store.sha;
+    res = await post({ op: 'add', bookmark: { tags: 'x' } });
+    assert.equal(res.status, 400);
+    assert.equal(store.sha, before);
+    // Une URL non vide mais invalide reste refusée.
+    res = await post({ op: 'add', bookmark: { url: 'pas une url' } });
+    assert.equal(res.status, 400);
+  });
+
+  test('note : on peut lui ajouter puis retirer une URL', async () => {
+    let res = await post({ op: 'add', bookmark: { title: 'Note', description: 'texte' } });
+    const id = res.json.bookmarks[0].id;
+    res = await post({ op: 'update', id, patch: { url: 'https://devient-lien.example' } });
+    assert.equal(res.json.bookmarks[0].url, 'https://devient-lien.example/');
+    res = await post({ op: 'update', id, patch: { url: '', title: '' } });
+    assert.equal(res.json.bookmarks[0].url, '');
+    assert.equal(res.json.bookmarks[0].title, 'texte');
+    // Vider titre, description et URL d'une note : refusé.
+    res = await post({ op: 'update', id, patch: { url: '', title: '', description: '' } });
+    assert.equal(res.status, 400);
+  });
+
+  test('import : les notes sont importées, et réimporter ne les duplique pas', async () => {
+    const items = [{ title: 'Note A', description: 'x\ny', tags: ['Perso'] }, { url: 'https://lien.example' }];
+    let res = await post({ op: 'import', bookmarks: items });
+    assert.equal(res.json.added, 2);
+    res = await post({ op: 'import', bookmarks: items });
+    assert.equal(res.json.added, 0);
+    assert.equal(res.json.skipped, 2);
+  });
+
   test('opération inconnue', async () => {
     assert.equal((await post({ op: 'detruire-tout' })).status, 400);
   });

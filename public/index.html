@@ -109,8 +109,8 @@
     <form id="edit-form" method="dialog" class="dialog-body">
       <h2 id="edit-title">Ajouter un marque-page</h2>
       <label class="field">
-        <span>Adresse (URL)</span>
-        <input id="f-url" type="url" required placeholder="https://…" autocomplete="off">
+        <span>Adresse (URL) <span class="muted small">— laisse vide pour une simple note</span></span>
+        <input id="f-url" type="url" placeholder="https://…" autocomplete="off">
       </label>
       <p id="dup-warning" class="warning" hidden></p>
       <label class="field">
@@ -119,7 +119,7 @@
       </label>
       <label class="field">
         <span>Description</span>
-        <textarea id="f-description" rows="2" maxlength="2000"></textarea>
+        <textarea id="f-description" rows="5" maxlength="5000"></textarea>
       </label>
       <label class="field">
         <span>Tags (séparés par des virgules)</span>
@@ -204,7 +204,7 @@
 
       <h3>Exporter</h3>
       <div class="row">
-        <button id="export-html" class="btn" type="button">HTML (navigateurs)</button>
+        <button id="export-html" class="btn" type="button" title="Les notes (sans adresse) ne sont pas incluses">HTML (navigateurs)</button>
         <button id="export-json" class="btn" type="button">JSON (sauvegarde)</button>
       </div>
 
