@@ -108,7 +108,10 @@ describe('marque-pages', () => {
 
   test('liste vide quand le fichier n\'existe pas encore', async () => {
     const res = await call(bookmarks, { cookie: session() });
-    assert.deepEqual(res.json, { bookmarks: [], primaryTags: [] });
+    assert.deepEqual(res.json.bookmarks, []);
+    assert.deepEqual(res.json.primaryTags, []);
+    assert.equal(res.json.storage.limit, 1_000_000);
+    assert.ok(res.json.storage.bytes > 0 && res.json.storage.bytes < 200);
   });
 
   test('erreur claire quand le dépôt est inaccessible', async () => {
@@ -376,6 +379,23 @@ describe('marque-pages', () => {
     res = await post({ op: 'import', bookmarks: items });
     assert.equal(res.json.added, 0);
     assert.equal(res.json.skipped, 2);
+  });
+
+  test('stockage : la taille est annoncée, et ce qui ferait dépasser 1 Mo est refusé', async () => {
+    let res = await post({ op: 'add', bookmark: { url: 'https://un.example', description: 'x'.repeat(1000) } });
+    assert.equal(res.json.storage.bytes, Buffer.byteLength(store.text, 'utf8'));
+    // Fichier presque plein : ~1 Mo de grosses notes.
+    const filler = Array.from({ length: 205 }, (_, i) => ({ id: `n${i}`, url: '', title: `Note ${i}`, description: 'y'.repeat(4900), tags: [], favorite: false, createdAt: '2020-01-01T00:00:00.000Z' }));
+    store = { text: JSON.stringify({ version: 2, primaryTags: [], bookmarks: filler }), sha: 'plein' };
+    const before = store.sha;
+    res = await post({ op: 'add', bookmark: { url: 'https://deux.example', description: 'z'.repeat(1000) } });
+    assert.equal(res.status, 413);
+    assert.match(res.json.error, /Stockage plein/);
+    assert.equal(store.sha, before, 'rien ne doit être écrit');
+    // Libérer de la place reste possible.
+    res = await post({ op: 'delete', id: 'n0' });
+    assert.equal(res.status, 200);
+    assert.ok(res.json.storage.bytes < 1_000_000 + 100_000 && res.json.bookmarks.length === 204);
   });
 
   test('opération inconnue', async () => {

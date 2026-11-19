@@ -105,6 +105,24 @@ async function api(path, { method = 'GET', body } = {}) {
 function applyData(data) {
   state.bookmarks = data.bookmarks;
   if (Array.isArray(data.primaryTags)) state.primaryTags = data.primaryTags;
+  if (data.storage) renderStorage(data.storage);
+}
+
+// Place utilisée dans le fichier de données (limite de 1 Mo de l'API GitHub).
+function renderStorage({ bytes, limit }) {
+  const used = Math.min(100, (bytes / limit) * 100);
+  // « 0 % utilisé » n'est vrai que pour un fichier vide ; sinon on arrondit vers le haut pour ne jamais sous-estimer.
+  const usedPct = bytes ? Math.min(100, Math.max(1, Math.ceil(used))) : 0;
+  const size = bytes < 1000 ? `${bytes} o` : bytes < 1_000_000 ? `${Math.round(bytes / 1000)} Ko` : `${(bytes / 1_000_000).toFixed(2).replace('.', ',')} Mo`;
+  const box = $('#storage');
+  box.hidden = false;
+  box.classList.toggle('warn', usedPct >= 80);
+  box.classList.toggle('full', usedPct >= 95);
+  $('#storage-fill').style.width = `${usedPct}%`;
+  const left = 100 - usedPct;
+  $('#storage-text').textContent =
+    `Stockage : ${left}\u00a0% restant (${size.replace(' ', '\u00a0')} sur 1\u00a0Mo)` +
+    (usedPct >= 95 ? ' — presque plein, exporte une sauvegarde et fais du tri' : usedPct >= 80 ? ' — se remplit' : '');
 }
 
 function readIncoming() {

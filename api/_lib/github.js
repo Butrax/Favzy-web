@@ -6,6 +6,14 @@ import { HttpError } from './http.js';
 
 const API = 'https://api.github.com';
 
+// L'API Contents ne renvoie le contenu d'un fichier que jusqu'à 1 Mo. On compte 1 000 000 d'octets :
+// une petite marge de sécurité sous cette limite.
+export const STORAGE_LIMIT = 1_000_000;
+const sizeOf = (text) => Buffer.byteLength(text, 'utf8');
+export function storageInfo(data) {
+  return { bytes: sizeOf(serialize(data)), limit: STORAGE_LIMIT };
+}
+
 function config() {
   return {
     repo: env('GITHUB_REPO'), // « utilisateur/favzy-stock »
@@ -110,7 +118,13 @@ export async function mutate(change, message, attempts = 4) {
     const { data, sha } = await readStore();
     const before = serialize(data);
     const result = change(data);
-    if (serialize(data) === before) return { data, result }; // rien n'a changé : pas de commit inutile
+    const after = serialize(data);
+    if (after === before) return { data, result }; // rien n'a changé : pas de commit inutile
+    // Au-delà de la limite, le fichier ne pourrait plus être relu : on refuse tout ce qui le fait grossir.
+    // (Supprimer ou raccourcir reste toujours possible.)
+    if (sizeOf(after) > STORAGE_LIMIT && sizeOf(after) > sizeOf(before)) {
+      throw new HttpError(413, 'Stockage plein (1 Mo atteint) : supprime des favoris ou exporte-les avant d\u2019en ajouter');
+    }
     try {
       await writeStore(data, sha, message);
       return { data, result };

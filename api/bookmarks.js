@@ -1,6 +1,6 @@
 import { requireAuth } from './_lib/auth.js';
 import { addBookmark, addTagsToBookmarks, deleteBookmark, importBookmarks, renameTag, setPrimaryTags, updateBookmark } from './_lib/bookmarks.js';
-import { mutate, readStore } from './_lib/github.js';
+import { mutate, readStore, storageInfo } from './_lib/github.js';
 import { HttpError, readJson, send, sendError, sameOrigin } from './_lib/http.js';
 
 const short = (text) => String(text ?? '').slice(0, 60);
@@ -11,7 +11,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       const { data } = await readStore();
-      return send(res, 200, { bookmarks: data.bookmarks, primaryTags: data.primaryTags });
+      return send(res, 200, { bookmarks: data.bookmarks, primaryTags: data.primaryTags, storage: storageInfo(data) });
     }
 
     if (req.method !== 'POST') {
@@ -65,7 +65,7 @@ export default async function handler(req, res) {
 
     const { data, result } = await mutate(change, message);
     const extra = ['import', 'renameTag', 'addTags'].includes(body.op) ? result : {};
-    send(res, 200, { bookmarks: data.bookmarks, primaryTags: data.primaryTags, ...extra });
+    send(res, 200, { bookmarks: data.bookmarks, primaryTags: data.primaryTags, storage: storageInfo(data), ...extra });
   } catch (error) {
     sendError(res, error);
   }

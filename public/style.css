@@ -244,3 +244,12 @@ dialog::backdrop { background: rgb(0 0 0 / 0.45); }
 
 
 .bm-desc.note-text { display: block; -webkit-line-clamp: unset; overflow: visible; color: inherit; }
+
+/* Jauge de stockage (limite de 1 Mo du fichier de données) */
+.storage { margin-top: 4px; }
+.storage-bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.storage-fill { height: 100%; width: 0; background: var(--muted); }
+.storage.warn .storage-fill { background: var(--accent); }
+.storage.full .storage-fill { background: var(--danger); }
+.storage .note { margin: 6px 0 0; }
+.storage.full .note { color: var(--danger); }

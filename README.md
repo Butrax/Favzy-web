@@ -106,7 +106,7 @@ Les tags se comparent sans tenir compte de la casse. **Migration** : un fichier 
 npm i -g vercel
 cp .env.example .env.local     # puis remplis les valeurs
 vercel dev                     # http://localhost:3000
-npm test                       # 46 tests (API avec GitHub simulé + moteur de tags), aucun réseau
+npm test                       # 47 tests (API avec GitHub simulé + moteur de tags), aucun réseau
 ```
 
 ## Sécurité : ce qui est fait, et les limites
@@ -120,6 +120,7 @@ npm test                       # 46 tests (API avec GitHub simulé + moteur de t
 ## Limites techniques
 
 - Le fichier est lu via l'API Contents de GitHub (jusqu'à 1 Mo, soit plusieurs milliers de marque-pages). Au-delà, l'appli le signale.
+- **Jauge de stockage** : en bas de la barre latérale (☰ sur mobile), une barre indique le pourcentage restant (par rapport à 1 Mo). Elle passe en orange à 80 % d'utilisation et en rouge à 95 %. Si une écriture ferait dépasser 1 Mo, elle est **refusée** avec le message « Stockage plein » (sinon le fichier ne pourrait plus être relu) ; supprimer des favoris reste toujours possible, pense à exporter une sauvegarde JSON avant de faire du tri.
 - Chaque écriture prend environ 1 seconde (un commit) ; une opération qui ne change rien n'écrit rien. Deux écritures simultanées depuis deux appareils sont gérées : l'appli relit et rejoue la modification.
 - Les favoris sans aucun tag principal ne sont atteignables que par la liste complète (aucun filtre) ou la recherche texte.
 
