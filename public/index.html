@@ -45,6 +45,10 @@
           <span class="label">★ Favoris seulement</span><span id="fav-count" class="count"></span>
         </button>
 
+        <button id="untagged-toggle" class="nav-item" type="button" aria-pressed="false">
+          <span class="label">Sans tag</span><span id="untagged-count" class="count"></span>
+        </button>
+
         <!-- Boîte 1 : tags principaux -->
         <section class="box" aria-labelledby="primary-title">
           <div class="box-head">
@@ -121,6 +125,10 @@
         <span>Tags (séparés par des virgules)</span>
         <input id="f-tags" type="text" placeholder="Musique, VST, Réverbération" autocomplete="off">
       </label>
+      <div id="recent-tags" class="recent-tags" hidden>
+        <button id="recent-btn" class="btn" type="button">+ Reprendre les tags du dernier favori</button>
+        <span id="recent-list" class="muted small"></span>
+      </div>
       <div id="tag-suggestions" class="tags suggest" aria-label="Tags existants"></div>
       <label class="check"><input id="f-favorite" type="checkbox"> Favori ★</label>
       <p id="edit-error" class="error" role="alert" hidden></p>

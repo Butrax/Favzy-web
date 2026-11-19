@@ -66,7 +66,7 @@ Dans « Gérer les tags » (⚙), le bouton **✎** d'un tag ouvre une fenêtre 
 - si le nouveau nom est celui d'un **autre tag existant**, les deux tags sont **fusionnés** : la fenêtre te prévient et le bouton devient « Fusionner ». Un favori qui avait les deux n'a plus de doublon, et le tag fusionné est principal si l'un des deux l'était ;
 - un simple changement de casse (« musique » → « Musique ») est accepté. Une virgule est refusée (elle sépare les tags).
 
-La recherche texte (touche `/`) et « ★ Favoris seulement » se combinent avec les tags : suggestions et compteurs en tiennent compte. Rien n'est stocké comme « relation entre tags » : la coexistence se déduit des favoris.
+La recherche texte (touche `/`) et « ★ Favoris seulement » se combinent avec les tags : suggestions et compteurs en tiennent compte. **« Sans tag »** (avec son compteur) n'affiche que les favoris qui n'ont aucun tag, pour les retrouver et les étiqueter, par exemple avec Sélectionner → Tout sélectionner → Ajouter des tags ; ce filtre et la sélection de tags s'excluent (un favori sans tag ne peut pas porter un tag choisi). Rien n'est stocké comme « relation entre tags » : la coexistence se déduit des favoris.
 
 ### Ajouter un lot de tags à plusieurs favoris
 1. Clique sur **Sélectionner** (au-dessus de la liste) : la pastille d'initiale de chaque carte devient une case à cocher. **Maj + clic** coche une plage de cartes.
@@ -76,7 +76,7 @@ La recherche texte (touche `/`) et « ★ Favoris seulement » se combinent avec
 Les tags sont ajoutés à chaque favori coché **sans toucher à ses autres tags**, sans doublon, et un tag saisi « linux » reprend l'écriture existante « Linux ». Tout le lot est enregistré en **un seul commit**. La barre indique « dont N masqués par les filtres » si des favoris cochés ne sont plus affichés ; **Terminer** quitte le mode et décoche tout. Si aucun favori n'a rien à gagner, rien n'est écrit.
 
 ### Le reste
-- **Ajout rapide** : colle une adresse, le titre et la description sont récupérés automatiquement. Les doublons sont signalés (l'ancre `#…` et les `utm_*` sont ignorés). Le formulaire propose les tags existants en un clic ; un tag saisi avec une autre casse (« musique ») reprend l'écriture existante (« Musique »). Un nouveau favori reprend les tags actuellement sélectionnés.
+- **Ajout rapide** : colle une adresse, le titre et la description sont récupérés automatiquement. Les doublons sont signalés (l'ancre `#…` et les `utm_*` sont ignorés). Le formulaire propose les tags existants en un clic ; un tag saisi avec une autre casse (« musique ») reprend l'écriture existante (« Musique »). Un nouveau favori reprend les tags actuellement sélectionnés. À l'ajout, le bouton **« Reprendre les tags du dernier favori »** ajoute d'un clic tous les tags du favori le plus récent (selon sa date d'ajout) à ceux déjà saisis ; il disparaît quand ils sont tous repris et n'est pas proposé à la modification.
 - **Bookmarklet** (⚙ en haut → Outils) : glisse le bouton dans la barre de favoris ; un clic sur n'importe quelle page l'ajoute.
 - **Import** d'un export HTML de Chrome, Firefox, Edge ou Safari (tags, dates et descriptions conservés ; **les dossiers du navigateur ne le sont pas**), ou d'un export JSON Favzy (qui restaure aussi les tags principaux). **Export** HTML (réimportable dans un navigateur) et JSON.
 - **Mobile** : « Ajouter à l'écran d'accueil » installe Favzy comme une application ; sur Android, elle apparaît ensuite dans le menu **Partager**. Les boîtes de tags s'ouvrent avec le bouton ☰.

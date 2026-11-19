@@ -10,6 +10,7 @@ const state = {
   primaryTags: [], // noms des tags principaux (le reste est secondaire)
   query: '', // recherche texte
   favOnly: false,
+  untagged: false, // n'afficher que les favoris sans aucun tag
   selected: [], // clés des tags sélectionnés — tous combinés en ET
   boxQuery: { primary: '', secondary: '' },
   sort: 'recent',
@@ -187,6 +188,7 @@ function compute() {
   const tokens = fold(state.query).split(/\s+/).filter(Boolean);
   const candidates = state.bookmarks.filter((b) => {
     if (state.favOnly && !b.favorite) return false;
+    if (state.untagged && b.tags.length) return false;
     if (!tokens.length) return true;
     return tokens.every((token) => fold(`${b.title} ${b.url} ${b.description} ${b.tags.join(' ')}`).includes(token));
   });
@@ -200,23 +202,28 @@ function compute() {
   return { index, primaryKeys, view };
 }
 
-const filtersActive = () => state.selected.length > 0 || state.favOnly || state.query.trim() !== '';
+const filtersActive = () => state.selected.length > 0 || state.favOnly || state.untagged || state.query.trim() !== '';
 
 function toggleTag(key) {
   const at = state.selected.indexOf(key);
   if (at >= 0) state.selected.splice(at, 1);
-  else state.selected.push(key);
+  else {
+    state.selected.push(key);
+    state.untagged = false;
+  }
   render();
 }
 
 function addTagFilter(key) {
   if (!state.selected.includes(key)) state.selected.push(key);
+  state.untagged = false;
   render();
 }
 
 function resetFilters() {
   state.selected = [];
   state.favOnly = false;
+  state.untagged = false;
   state.query = '';
   state.boxQuery = { primary: '', secondary: '' };
   $('#search').value = '';
@@ -272,6 +279,14 @@ function renderBoxes({ index, primaryKeys, view }) {
         : 'Définis d\'abord des tags principaux avec ⚙ ci-dessus.',
   );
 
+  if (state.untagged) {
+    for (const kind of ['primary', 'secondary']) {
+      $(`#${kind}-list`).replaceChildren();
+      $(`#${kind}-note`).textContent = 'Le filtre « Sans tag » est actif : ces favoris n\'ont aucun tag.';
+    }
+  }
+  $('#untagged-count').textContent = state.bookmarks.filter((b) => !b.tags.length).length;
+  $('#untagged-toggle').setAttribute('aria-pressed', String(state.untagged));
   const favorites = state.bookmarks.filter((b) => b.favorite).length;
   $('#fav-count').textContent = favorites;
   $('#fav-toggle').setAttribute('aria-pressed', String(state.favOnly));
@@ -291,6 +306,9 @@ function renderActive(view) {
   }
   if (state.query.trim()) {
     chips.push(h('button', { class: 'chip', type: 'button', 'aria-label': 'Effacer la recherche', onclick: () => { state.query = ''; $('#search').value = ''; render(); } }, `« ${state.query.trim()} »`, h('span', { 'aria-hidden': 'true' }, ' ✕')));
+  }
+  if (state.untagged) {
+    chips.push(h('button', { class: 'chip', type: 'button', 'aria-label': 'Retirer le filtre Sans tag', onclick: () => { state.untagged = false; render(); } }, 'Sans tag', h('span', { 'aria-hidden': 'true' }, ' ✕')));
   }
   $('#active-chips').replaceChildren(...chips);
   $('#active').hidden = !filtersActive();
@@ -347,7 +365,7 @@ function renderList({ view }) {
     empty.replaceChildren('Aucun marque-page pour l\'instant. Clique sur « Ajouter » ou importe tes favoris depuis ⚙.');
   } else {
     empty.replaceChildren(
-      h('p', {}, 'Aucun favori ne correspond à ces filtres.'),
+      h('p', {}, state.untagged && !state.favOnly && !state.query.trim() ? 'Tous tes favoris ont au moins un tag.' : 'Aucun favori ne correspond à ces filtres.'),
       h('button', { class: 'btn', type: 'button', onclick: resetFilters }, 'Tout réinitialiser'),
     );
   }
@@ -384,6 +402,11 @@ $('#sort').addEventListener('change', (event) => {
 });
 $('#fav-toggle').addEventListener('click', () => {
   state.favOnly = !state.favOnly;
+  render();
+});
+$('#untagged-toggle').addEventListener('click', () => {
+  state.untagged = !state.untagged;
+  if (state.untagged) state.selected = []; // un favori sans tag ne peut pas porter un tag sélectionné
   render();
 });
 $('#reset').addEventListener('click', resetFilters);
@@ -600,6 +623,22 @@ function toggleListedTag(input, entry) {
 
 const renderTagSuggestions = () => renderSuggestions($('#f-tags'), $('#tag-suggestions'));
 
+// À l'ajout : proposition d'ajouter d'un clic tous les tags du favori le plus récent (date d'ajout).
+function recentTagsOffer() {
+  const last = state.editingId ? null : state.bookmarks.reduce((best, b) => (!best || b.createdAt > best.createdAt ? b : best), null);
+  const names = last ? [...last.tags].sort(compareText) : [];
+  const typed = new Set($('#f-tags').value.split(',').map(tagKey).filter(Boolean));
+  return { last, names, missing: names.filter((name) => !typed.has(tagKey(name))) };
+}
+
+function updateRecentTags() {
+  const { last, names, missing } = recentTagsOffer();
+  $('#recent-tags').hidden = missing.length === 0;
+  if (!missing.length) return;
+  const title = last.title.length > 40 ? `${last.title.slice(0, 40)}…` : last.title;
+  $('#recent-list').textContent = `« ${title} » : ${names.join(', ')}`;
+}
+
 function openEditor(bookmark, prefill) {
   state.editingId = bookmark?.id ?? null;
   const { index } = library();
@@ -615,6 +654,7 @@ function openEditor(bookmark, prefill) {
   $('#edit-force').hidden = true;
   updateDuplicateWarning();
   renderTagSuggestions();
+  updateRecentTags();
   editor.showModal();
   if (!bookmark && prefill?.url && !prefill.title) fetchTitle({ silent: true });
   else if (!bookmark && !prefill) $('#f-url').focus();
@@ -685,7 +725,17 @@ $('#f-url').addEventListener('input', updateDuplicateWarning);
 $('#f-url').addEventListener('change', () => {
   if (!state.editingId && !$('#f-title').value && $('#f-url').value.trim()) fetchTitle({ silent: true });
 });
-$('#f-tags').addEventListener('input', renderTagSuggestions);
+$('#f-tags').addEventListener('input', () => {
+  renderTagSuggestions();
+  updateRecentTags();
+});
+$('#recent-btn').addEventListener('click', () => {
+  const { missing } = recentTagsOffer();
+  const input = $('#f-tags');
+  input.value = [...input.value.split(',').map((tag) => tag.trim()).filter(Boolean), ...missing].join(', ');
+  input.dispatchEvent(new Event('input')); // met à jour pastilles et proposition
+  input.focus();
+});
 $('#fetch-title').addEventListener('click', () => fetchTitle());
 $('#edit-form').addEventListener('submit', (event) => {
   event.preventDefault();
